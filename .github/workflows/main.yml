@@ -5,7 +5,7 @@ on:
     branches:
       - main
   schedule:
-    - cron: '0 0 * * *' # Her gün 00:00'da çalışır
+    - cron: '0 */3 * * *' # Her 3 saatte bir çalışır (00:00, 03:00, 06:00, 09:00, 12:00, 15:00, 18:00, 21:00 UTC)
   workflow_dispatch: # Manuel tetikleme için
 
 jobs:
@@ -16,6 +16,7 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
       with:
+        token: ${{ secrets.GITHUB_TOKEN }}
         fetch-depth: 0 # Tüm commit geçmişini al
 
     - name: Set up Python
@@ -33,11 +34,11 @@ jobs:
 
     - name: Commit and push puhutv.html
       run: |
-        git config --global user.name 'GitHub Action'
-        git config --global user.email 'action@github.com'
+        git config --global user.name 'github-actions[bot]'
+        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
         git add puhutv.html
         git commit -m "Update puhutv.html with latest scrape" || echo "No changes to commit"
-        git push
+        git push origin main
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
