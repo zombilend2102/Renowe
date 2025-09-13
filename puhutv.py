@@ -5,13 +5,14 @@ from urllib.parse import urljoin
 import json
 import yaml
 import os
+import re
 
 main_url = "https://puhutv.com/"
 diziler_url = "https://puhutv.com/dizi"
 html_file = "puhutv.html"
 yml_file = "puhutv.yml"
 
-# HTML şablonu
+# HTML şablonu (TAM VERSİYON)
 HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="tr">
 <head>
@@ -706,89 +707,122 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 def get_series_details(series_id):
     url = f"https://appservice.puhutv.com/service/serie/getSerieInformations?id={series_id}"
     headers = {"User-Agent": "Mozilla/5.0"}
-    r = requests.get(url, headers=headers)
-    if r.status_code == 200:
-        return r.json()[0]
+    try:
+        r = requests.get(url, headers=headers, timeout=30)
+        if r.status_code == 200:
+            return r.json()[0]
+    except:
+        pass
     return {"title": "", "seasons": []}
 
 def get_stream_urls(season_slug):
     url = urljoin(main_url, season_slug)
-    r = requests.get(url)
-    if r.status_code != 200:
-        return []
-
-    soup = BeautifulSoup(r.content, "html.parser")
     try:
-        content = json.loads(soup.find("script", {"id": "__NEXT_DATA__"}).string)["props"]["pageProps"]["episodes"]["data"]
-    except:
-        return []
+        r = requests.get(url, timeout=30)
+        if r.status_code != 200:
+            return []
 
-    episodes = []
-    for ep in content["episodes"]:
-        episodes.append({
-            "id": ep["id"],
-            "name": ep["name"],  # bölüm adı
-            "img": ep["image"],
-            "url": urljoin(main_url, ep["slug"]),
-            "stream_url": f"https://dygvideo.dygdigital.com/api/redirect?PublisherId=29&ReferenceId={ep['video_id']}&SecretKey=NtvApiSecret2014*&.m3u8"
-        })
-    return episodes
+        soup = BeautifulSoup(r.content, "html.parser")
+        script_tag = soup.find("script", {"id": "__NEXT_DATA__"})
+        if script_tag:
+            content = json.loads(script_tag.string)
+            episodes_data = content.get("props", {}).get("pageProps", {}).get("episodes", {}).get("data", {})
+            episodes = episodes_data.get("episodes", [])
+            
+            result = []
+            for ep in episodes:
+                result.append({
+                    "id": ep.get("id", ""),
+                    "name": ep.get("name", ""),
+                    "img": ep.get("image", ""),
+                    "url": urljoin(main_url, ep.get("slug", "")),
+                    "stream_url": f"https://dygvideo.dygdigital.com/api/redirect?PublisherId=29&ReferenceId={ep.get('video_id', '')}&SecretKey=NtvApiSecret2014*&.m3u8"
+                })
+            return result
+    except:
+        pass
+    return []
 
 def get_all_content():
-    r = requests.get(diziler_url)
-    if r.status_code != 200:
-        return []
-
-    soup = BeautifulSoup(r.content, "html.parser")
     try:
-        container_items = json.loads(soup.find("script", {"id": "__NEXT_DATA__"}).string)["props"]["pageProps"]["data"]["data"]["container_items"]
-    except:
-        return []
+        r = requests.get(diziler_url, timeout=30)
+        if r.status_code != 200:
+            return []
 
-    series_list = []
-    for item in container_items:
-        for content in item["items"]:
-            series_list.append(content)
+        soup = BeautifulSoup(r.content, "html.parser")
+        script_tag = soup.find("script", {"id": "__NEXT_DATA__"})
+        if script_tag:
+            content = json.loads(script_tag.string)
+            container_items = content.get("props", {}).get("pageProps", {}).get("data", {}).get("data", {}).get("container_items", [])
+            
+            series_list = []
+            for item in container_items:
+                for content_item in item.get("items", []):
+                    series_list.append(content_item)
 
-    all_series = []
-    for series in tqdm(series_list, desc="Processing Series"):
-        series_id = series["id"]
-        series_name = series["name"]
-        series_slug = series["meta"]["slug"]
-        series_img = series["image"]
+            all_series = []
+            for series in tqdm(series_list, desc="Processing Series"):
+                series_id = series.get("id")
+                series_name = series.get("name", "")
+                series_slug = series.get("meta", {}).get("slug", "")
+                series_img = series.get("image", "")
 
-        series_details = get_series_details(series_id)
-        if not series_details["seasons"]:
-            continue
+                if not all([series_id, series_name, series_slug]):
+                    continue
 
-        temp_series = {
-            "name": series_name,
-            "img": series_img,
-            "url": urljoin(main_url, series_slug),
-            "episodes": []
-        }
+                series_details = get_series_details(series_id)
+                if not series_details.get("seasons"):
+                    continue
 
-        for season in series_details["seasons"]:
-            season_slug = season["slug"]
-            season_name = season["name"]
-            episodes = get_stream_urls(season_slug)
-            for ep in episodes:
-                # Burada dizinin adı + sezon + bölüm birleştirildi
-                temp_name = f"{season_name} - {ep['name']}"
-                # Boşlukları kaldırıyoruz: "1. Sezon - 1. Bölüm" -> "1.Sezon 1.Bölüm"
-                temp_name = temp_name.replace(". ", ".").replace(" - ", " ")
-                ep["full_name"] = f"{series_name} {temp_name}"
-                temp_series["episodes"].append(ep)
+                temp_series = {
+                    "name": series_name,
+                    "img": series_img,
+                    "url": urljoin(main_url, series_slug),
+                    "episodes": []
+                }
 
-        all_series.append(temp_series)
+                for season in series_details.get("seasons", []):
+                    season_slug = season.get("slug")
+                    season_name = season.get("name", "")
+                    if season_slug:
+                        episodes = get_stream_urls(season_slug)
+                        for ep in episodes:
+                            temp_name = f"{season_name} - {ep['name']}"
+                            temp_name = temp_name.replace(". ", ".").replace(" - ", " ")
+                            ep["full_name"] = f"{series_name} {temp_name}"
+                            temp_series["episodes"].append(ep)
 
-    return all_series
+                if temp_series["episodes"]:
+                    all_series.append(temp_series)
+
+            return all_series
+    except Exception as e:
+        print(f"Hata oluştu: {e}")
+    return []
+
+def create_safe_id(name):
+    """Güvenli bir JavaScript ID'si oluştur"""
+    # Türkçe karakterleri İngilizce karşılıklarıyla değiştir
+    replacements = {
+        'ı': 'i', 'ğ': 'g', 'ü': 'u', 'ş': 's', 'ö': 'o', 'ç': 'c',
+        'İ': 'I', 'Ğ': 'G', 'Ü': 'U', 'Ş': 'S', 'Ö': 'O', 'Ç': 'C'
+    }
+    for tr, en in replacements.items():
+        name = name.replace(tr, en)
+    
+    # Sadece harf, rakam ve alt çizgiye izin ver
+    name = re.sub(r'[^a-zA-Z0-9_]', '', name)
+    return name.lower()
 
 def create_html_file(data):
+    if not data:
+        print("Veri bulunamadı, HTML oluşturulamadı.")
+        return
+
     # Dizileri JavaScript formatına dönüştür
     js_diziler = {}
     for series in data:
-        series_id = series["name"].lower().replace(" ", "").replace("ı", "i").replace("ğ", "g").replace("ü", "u").replace("ş", "s").replace("ö", "o").replace("ç", "c")
+        series_id = create_safe_id(series["name"])
         js_diziler[series_id] = {
             "resim": series["img"],
             "bolumler": [{"ad": ep["full_name"], "link": ep["stream_url"]} for ep in series["episodes"]]
@@ -797,10 +831,10 @@ def create_html_file(data):
     # HTML içeriğini oluştur
     series_content = ""
     for series in data:
-        series_id = series["name"].lower().replace(" ", "").replace("ı", "i").replace("ğ", "g").replace("ü", "u").replace("ş", "s").replace("ö", "o").replace("ç", "c")
+        series_id = create_safe_id(series["name"])
         series_content += f'''
         <div class="filmpanel" onclick="showBolumler('{series_id}')">
-            <div class="filmresim"><img src="{series['img']}"></div>
+            <div class="filmresim"><img src="{series['img']}" onerror="this.src='https://via.placeholder.com/300x450?text=Resim+Yüklenemedi'"></div>
             <div class="filmisimpanel">
                 <div class="filmisim">{series['name']}</div>
             </div>
@@ -816,18 +850,28 @@ def create_html_file(data):
     print(f"{html_file} başarıyla oluşturuldu!")
 
 def create_yaml_file(data):
+    if not data:
+        print("Veri bulunamadı, YML oluşturulamadı.")
+        return
+        
     if os.path.exists(yml_file):
-        # Eğer yml zaten varsa dokunma
         print(f"{yml_file} zaten mevcut, oluşturulmadı.")
         return
+        
     with open(yml_file, "w", encoding="utf-8") as f:
-        yaml.dump(data, f, allow_unicode=True)
+        yaml.dump(data, f, allow_unicode=True, default_flow_style=False)
     print(f"{yml_file} başarıyla oluşturuldu!")
 
 def main():
+    print("PuhuTV verileri çekiliyor...")
     data = get_all_content()
-    create_html_file(data)
-    create_yaml_file(data)
+    
+    if data:
+        print(f"{len(data)} dizi bulundu, HTML oluşturuluyor...")
+        create_html_file(data)
+        create_yaml_file(data)
+    else:
+        print("Hiç veri bulunamadı.")
 
 if __name__ == "__main__":
     main()
