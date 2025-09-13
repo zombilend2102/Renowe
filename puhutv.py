@@ -6,8 +6,6 @@ import json
 
 main_url = "https://puhutv.com/"
 diziler_url = "https://puhutv.com/dizi"
-html_file = "puhutv.html"  # Bu artık kullanılmayacak, print için
-json_file = "puhutv.json"  # Bu da print için
 
 def get_series_details(series_id):
     url = f"https://appservice.puhutv.com/service/serie/getSerieInformations?id={series_id}"
@@ -42,7 +40,7 @@ def get_stream_urls(season_slug):
             if "video_id" in ep:
                 episodes.append({
                     "id": ep["id"],
-                    "name": ep["name"],  # bölüm adı
+                    "name": ep["name"],
                     "img": ep["image"],
                     "url": urljoin(main_url, ep["slug"]),
                     "stream_url": f"https://dygvideo.dygdigital.com/api/redirect?PublisherId=29&ReferenceId={ep['video_id']}&SecretKey=NtvApiSecret2014*&.m3u8"
@@ -134,6 +132,7 @@ def print_html_file(data):
         print("Hata: Veri yok, HTML oluşturulamadı!")
         return
 
+    # CSS stilleri (senin orijinalinden)
     css_styles = """
         *:not(input):not(textarea) {
             -moz-user-select: -moz-none;
@@ -535,7 +534,6 @@ def print_html_file(data):
             background: #6b3ec7;
             transition: background 0.3s;
         }
-        /* Player Panel Styles */
         .playerpanel {
             width: 100%;
             height: 100vh;
@@ -621,7 +619,7 @@ def print_html_file(data):
         }
     """
 
-    # Dizi HTML'lerini oluştur
+    # Dizi HTML'lerini oluştur (ana sayfa panelleri)
     series_html = ""
     for idx, series in enumerate(data, 1):
         series_html += f"""
@@ -633,61 +631,12 @@ def print_html_file(data):
         </div>
         """
 
-    # JSON verisi
+    # JSON verisi oluştur
     json_data = create_json_data(data)
     json_data_str = json.dumps(json_data, ensure_ascii=False)
 
-    # Tam HTML template
-    html_template = f"""<!DOCTYPE html>
-<html lang="tr">
-<head>
-    <title>TITAN TV YERLİ VOD</title>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
-    <link href="https://fonts.googleapis.com/css?family=PT+Sans:700i" rel="stylesheet">
-    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
-    <script src="https://kit.fontawesome.com/bbe955c5ed.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/js/splide.min.js"></script>
-    <!-- JW Player Dependency -->
-    <script src="https://ssl.p.jwpcdn.com/player/v/8.22.0/jwplayer.js"></script>
-    <style>
-        {css_styles}
-    </style>
-</head>
-<body>
-    <div class="aramapanel">
-        <div class="aramapanelsol">
-            <div class="logo"><img src="https://i.hizliresim.com/t75soiq.png"></div>
-            <div class="logoisim">TITAN TV</div>
-        </div>
-        <div class="aramapanelsag">
-            <form action="" name="ara" method="GET" onsubmit="return searchSeries()">
-                <input type="text" id="seriesSearch" placeholder="Dizi Adını Giriniz..!" class="aramapanelyazi" oninput="resetSeriesSearch()">
-                <input type="submit" value="ARA" class="aramapanelbuton">
-            </form>
-        </div>
-    </div>
-
-    <div class="filmpaneldis">
-        <div class="baslik">YERLİ DİZİLER VOD BÖLÜM</div>
-
-        {series_html}
-    </div>
-
-    <!-- Bölüm Listesi -->
-    <div id="bolumler" class="bolum-container hidden">
-        <div id="geriBtn" class="geri-btn" onclick="geriDon()">Geri</div>
-        <div id="bolumListesi" class="filmpaneldis"></div>
-    </div>
-
-    <!-- Player Panel -->
-    <div id="playerpanel" class="playerpanel">
-        <div class="player-geri-btn" onclick="geriPlayer()">Geri</div>
-        <div id="main-player"></div>
-    </div>
-
-    <script>
-        // JW Player anahtarı
+    # JavaScript template'ini düzgün escape et (f-string içinde {{ }} ile)
+    js_template = f"""        // JW Player anahtarı
         jwplayer.key = "cLGMn8T20tGvW+0eXPhq4NNmLB57TrscPjd1IyJF84o=";
 
         var diziler = {json_data_str};
@@ -706,9 +655,9 @@ def print_html_file(data):
                     var item = document.createElement("div");
                     item.className = "filmpanel";
                     item.innerHTML = `
-                        <div class="filmresim"><img src="{diziler[diziID].resim}"></div>
+                        <div class="filmresim"><img src="${{diziler[diziID].resim}}"></div>
                         <div class="filmisimpanel">
-                            <div class="filmisim">{bolum.ad}</div>
+                            <div class="filmisim">${{bolum.ad}}</div>
                         </div>
                     `;
                     item.onclick = function() {{
@@ -843,6 +792,59 @@ def print_html_file(data):
                 }});
             }}
         }}
+    """
+
+    # Tam HTML template (f-string ile birleştir)
+    html_template = f"""<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <title>TITAN TV YERLİ VOD</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css?family=PT+Sans:700i" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://kit.fontawesome.com/bbe955c5ed.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/js/splide.min.js"></script>
+    <!-- JW Player Dependency -->
+    <script src="https://ssl.p.jwpcdn.com/player/v/8.22.0/jwplayer.js"></script>
+    <style>
+        {css_styles}
+    </style>
+</head>
+<body>
+    <div class="aramapanel">
+        <div class="aramapanelsol">
+            <div class="logo"><img src="https://i.hizliresim.com/t75soiq.png"></div>
+            <div class="logoisim">TITAN TV</div>
+        </div>
+        <div class="aramapanelsag">
+            <form action="" name="ara" method="GET" onsubmit="return searchSeries()">
+                <input type="text" id="seriesSearch" placeholder="Dizi Adını Giriniz..!" class="aramapanelyazi" oninput="resetSeriesSearch()">
+                <input type="submit" value="ARA" class="aramapanelbuton">
+            </form>
+        </div>
+    </div>
+
+    <div class="filmpaneldis">
+        <div class="baslik">YERLİ DİZİLER VOD BÖLÜM</div>
+
+        {series_html}
+    </div>
+
+    <!-- Bölüm Listesi -->
+    <div id="bolumler" class="bolum-container hidden">
+        <div id="geriBtn" class="geri-btn" onclick="geriDon()">Geri</div>
+        <div id="bolumListesi" class="filmpaneldis"></div>
+    </div>
+
+    <!-- Player Panel -->
+    <div id="playerpanel" class="playerpanel">
+        <div class="player-geri-btn" onclick="geriPlayer()">Geri</div>
+        <div id="main-player"></div>
+    </div>
+
+    <script>
+        {js_template}
     </script>
 </body>
 </html>"""
@@ -850,7 +852,7 @@ def print_html_file(data):
     print("=== PUHUTV.HTML DOSYASI BAŞLANGICI ===")
     print(html_template)
     print("=== PUHUTV.HTML DOSYASI SONU ===")
-    print("\nYukarıdaki HTML kodunu kopyala ve 'puhutv.html' olarak kaydet!")
+    print("\nYukarıdaki HTML kodunu kopyala ve 'puhutv.html' olarak kaydet! (GitHub Actions log'undan kopyala.)")
 
 def print_json_file(data):
     json_data = create_json_data(data)
