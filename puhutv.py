@@ -3,97 +3,121 @@ from tqdm import tqdm
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 import json
-import os
 
 main_url = "https://puhutv.com/"
 diziler_url = "https://puhutv.com/dizi"
-html_file = "puhutv.html"
-json_file = "puhutv.json"
+html_file = "puhutv.html"  # Bu artık kullanılmayacak, print için
+json_file = "puhutv.json"  # Bu da print için
 
 def get_series_details(series_id):
     url = f"https://appservice.puhutv.com/service/serie/getSerieInformations?id={series_id}"
-    headers = {"User-Agent": "Mozilla/5.0"}
-    r = requests.get(url, headers=headers)
-    if r.status_code == 200:
-        return r.json()[0]
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"}
+    try:
+        r = requests.get(url, headers=headers, timeout=10)
+        if r.status_code == 200:
+            return r.json()[0]
+    except:
+        pass
     return {"title": "", "seasons": []}
 
 def get_stream_urls(season_slug):
     url = urljoin(main_url, season_slug)
-    r = requests.get(url)
-    if r.status_code != 200:
-        return []
-
-    soup = BeautifulSoup(r.content, "html.parser")
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"}
     try:
-        content = json.loads(soup.find("script", {"id": "__NEXT_DATA__"}).string)["props"]["pageProps"]["episodes"]["data"]
+        r = requests.get(url, headers=headers, timeout=10)
+        if r.status_code != 200:
+            return []
+
+        soup = BeautifulSoup(r.content, "html.parser")
+        script_tag = soup.find("script", {"id": "__NEXT_DATA__"})
+        if not script_tag:
+            return []
+        try:
+            content = json.loads(script_tag.string)["props"]["pageProps"]["episodes"]["data"]
+        except:
+            return []
+
+        episodes = []
+        for ep in content["episodes"]:
+            if "video_id" in ep:
+                episodes.append({
+                    "id": ep["id"],
+                    "name": ep["name"],  # bölüm adı
+                    "img": ep["image"],
+                    "url": urljoin(main_url, ep["slug"]),
+                    "stream_url": f"https://dygvideo.dygdigital.com/api/redirect?PublisherId=29&ReferenceId={ep['video_id']}&SecretKey=NtvApiSecret2014*&.m3u8"
+                })
+        return episodes
     except:
         return []
-
-    episodes = []
-    for ep in content["episodes"]:
-        episodes.append({
-            "id": ep["id"],
-            "name": ep["name"],
-            "img": ep["image"],
-            "url": urljoin(main_url, ep["slug"]),
-            "stream_url": f"https://dygvideo.dygdigital.com/api/redirect?PublisherId=29&ReferenceId={ep['video_id']}&SecretKey=NtvApiSecret2014*&.m3u8"
-        })
-    return episodes
 
 def get_all_content():
-    r = requests.get(diziler_url)
-    if r.status_code != 200:
-        return []
-
-    soup = BeautifulSoup(r.content, "html.parser")
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"}
     try:
-        container_items = json.loads(soup.find("script", {"id": "__NEXT_DATA__"}).string)["props"]["pageProps"]["data"]["data"]["container_items"]
-    except:
+        r = requests.get(diziler_url, headers=headers, timeout=10)
+        if r.status_code != 200:
+            print(f"Hata: Diziler sayfası yüklenemedi (Status: {r.status_code})")
+            return []
+
+        soup = BeautifulSoup(r.content, "html.parser")
+        script_tag = soup.find("script", {"id": "__NEXT_DATA__"})
+        if not script_tag:
+            print("Hata: __NEXT_DATA__ script'i bulunamadı!")
+            return []
+        try:
+            container_items = json.loads(script_tag.string)["props"]["pageProps"]["data"]["data"]["container_items"]
+        except Exception as e:
+            print(f"Hata: Veri parse edilemedi - {str(e)}")
+            return []
+
+        series_list = []
+        seen_series = set()  # Aynı dizileri önleme
+        for item in container_items:
+            for content in item["items"]:
+                series_id = content.get("id")
+                if series_id and series_id not in seen_series:
+                    seen_series.add(series_id)
+                    series_list.append(content)
+
+        all_series = []
+        for series in tqdm(series_list, desc="Processing Series"):
+            series_id = series["id"]
+            series_name = series["name"]
+            series_slug = series["meta"]["slug"]
+            series_img = series["image"]
+
+            series_details = get_series_details(series_id)
+            if not series_details.get("seasons"):
+                continue
+
+            temp_series = {
+                "id": series_id,
+                "name": series_name,
+                "img": series_img,
+                "url": urljoin(main_url, series_slug),
+                "episodes": []
+            }
+
+            for season in series_details["seasons"]:
+                season_slug = season["slug"]
+                season_name = season["name"]
+                episodes = get_stream_urls(season_slug)
+                for ep in episodes:
+                    temp_name = f"{season_name} - {ep['name']}"
+                    temp_name = temp_name.replace(". ", ".").replace(" - ", " ")
+                    ep["full_name"] = f"{series_name} {temp_name}"
+                    temp_series["episodes"].append(ep)
+
+            if temp_series["episodes"]:  # Boş sezonları ekleme
+                all_series.append(temp_series)
+
+        print(f"Toplam {len(all_series)} dizi işlendi.")
+        return all_series
+    except Exception as e:
+        print(f"Genel hata: {str(e)}")
         return []
 
-    series_list = []
-    seen_series = set()  # Aynı dizilerin tekrar çekilmesini önlemek için küme
-    for item in container_items:
-        for content in item["items"]:
-            if content["id"] not in seen_series:  # Aynı ID kontrolü
-                seen_series.add(content["id"])
-                series_list.append(content)
-
-    all_series = []
-    for series in tqdm(series_list, desc="Processing Series"):
-        series_id = series["id"]
-        series_name = series["name"]
-        series_slug = series["meta"]["slug"]
-        series_img = series["image"]
-
-        series_details = get_series_details(series_id)
-        if not series_details["seasons"]:
-            continue
-
-        temp_series = {
-            "id": series_id,
-            "name": series_name,
-            "img": series_img,
-            "url": urljoin(main_url, series_slug),
-            "episodes": []
-        }
-
-        for season in series_details["seasons"]:
-            season_slug = season["slug"]
-            season_name = season["name"]
-            episodes = get_stream_urls(season_slug)
-            for ep in episodes:
-                temp_name = f"{season_name} - {ep['name']}"
-                temp_name = temp_name.replace(". ", ".").replace(" - ", " ")
-                ep["full_name"] = f"{series_name} {temp_name}"
-                temp_series["episodes"].append(ep)
-
-        all_series.append(temp_series)
-
-    return all_series
-
-def create_json_file(data):
+def create_json_data(data):
     json_data = {}
     for idx, series in enumerate(data, 1):
         json_data[str(idx)] = {
@@ -103,205 +127,13 @@ def create_json_file(data):
                 for ep in series["episodes"]
             ]
         }
-    
-    with open(json_file, "w", encoding="utf-8") as f:
-        json.dump(json_data, f, ensure_ascii=False, indent=4)
-    print(f"{json_file} başarıyla oluşturuldu!")
+    return json_data
 
-def create_html_file(data):
-    html_template = """<!DOCTYPE html>
-<html lang="tr">
-<head>
-    <title>TITAN TV YERLİ VOD</title>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
-    <link href="https://fonts.googleapis.com/css?family=PT+Sans:700i" rel="stylesheet">
-    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
-    <script src="https://kit.fontawesome.com/bbe955c5ed.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/js/splide.min.js"></script>
-    <script src="https://ssl.p.jwpcdn.com/player/v/8.22.0/jwplayer.js"></script>
-    <style>
-        /* [Buradaki stil kısmı sizin verdiğiniz HTML'deki stil ile aynı kalacak] */
-        {css_styles}
-    </style>
-</head>
-<body>
-    <div class="aramapanel">
-        <div class="aramapanelsol">
-            <div class="logo"><img src="https://i.hizliresim.com/t75soiq.png"></div>
-            <div class="logoisim">TITAN TV</div>
-        </div>
-        <div class="aramapanelsag">
-            <form action="" name="ara" method="GET" onsubmit="return searchSeries()">
-                <input type="text" id="seriesSearch" placeholder="Dizi Adını Giriniz..!" class="aramapanelyazi" oninput="resetSeriesSearch()">
-                <input type="submit" value="ARA" class="aramapanelbuton">
-            </form>
-        </div>
-    </div>
+def print_html_file(data):
+    if not data:
+        print("Hata: Veri yok, HTML oluşturulamadı!")
+        return
 
-    <div class="filmpaneldis">
-        <div class="baslik">YERLİ DİZİLER VOD BÖLÜM</div>
-        {series_html}
-    </div>
-
-    <div id="bolumler" class="bolum-container hidden">
-        <div id="geriBtn" class="geri-btn" onclick="geriDon()">Geri</div>
-        <div id="bolumListesi" class="filmpaneldis"></div>
-    </div>
-
-    <div id="playerpanel" class="playerpanel">
-        <div class="player-geri-btn" onclick="geriPlayer()">Geri</div>
-        <div id="main-player"></div>
-    </div>
-
-    <script>
-        jwplayer.key = "cLGMn8T20tGvW+0eXPhq4NNmLB57TrscPjd1IyJF84o=";
-        var diziler = {json_data};
-
-        let currentScreen = 'anaSayfa';
-        let jwPlayerInstance = null;
-
-        function showBolumler(diziID) {
-            sessionStorage.setItem('currentDiziID', diziID);
-            var listContainer = document.getElementById("bolumListesi");
-            listContainer.innerHTML = "";
-            
-            if (diziler[diziID]) {
-                diziler[diziID].bolumler.forEach(function(bolum) {
-                    var item = document.createElement("div");
-                    item.className = "filmpanel";
-                    item.innerHTML = `
-                        <div class="filmresim"><img src="${diziler[diziID].resim}"></div>
-                        <div class="filmisimpanel">
-                            <div class="filmisim">${bolum.ad}</div>
-                        </div>
-                    `;
-                    item.onclick = function() {
-                        showPlayer(bolum.link, diziID);
-                    };
-                    listContainer.appendChild(item);
-                });
-            } else {
-                listContainer.innerHTML = "<p>Bu dizi için bölüm bulunamadı.</p>";
-            }
-            
-            document.querySelector(".filmpaneldis").classList.add("hidden");
-            document.getElementById("bolumler").classList.remove("hidden");
-            document.getElementById("geriBtn").style.display = "block";
-            currentScreen = 'bolumler';
-            history.replaceState({ page: 'bolumler', diziID: diziID }, '', `#bolumler-${diziID}`);
-        }
-
-        function showPlayer(streamUrl, diziID) {
-            document.getElementById("playerpanel").style.display = "flex";
-            document.getElementById("bolumler").classList.add("hidden");
-            currentScreen = 'player';
-            history.pushState({ page: 'player', diziID: diziID, streamUrl: streamUrl }, '', `#player-${diziID}`);
-            if (jwPlayerInstance) {
-                jwPlayerInstance.remove();
-                jwPlayerInstance = null;
-            }
-            document.getElementById("main-player").innerHTML = "";
-            document.getElementById("main-player").innerHTML = '<div id="jw-player"></div>';
-            jwPlayerInstance = jwplayer("jw-player").setup({
-                file: streamUrl,
-                title: diziler[diziID].bolumler.find(b => b.link === streamUrl).ad,
-                image: diziler[diziID].resim,
-                width: "100%",
-                height: "100%",
-                primary: "html5",
-                autostart: true,
-                playbackRateControls: [0.5, 1, 1.5, 2]
-            });
-        }
-
-        function geriPlayer() {
-            document.getElementById("playerpanel").style.display = "none";
-            document.getElementById("bolumler").classList.remove("hidden");
-            currentScreen = 'bolumler';
-            var currentDiziID = sessionStorage.getItem('currentDiziID');
-            history.replaceState({ page: 'bolumler', diziID: currentDiziID }, '', `#bolumler-${currentDiziID}`);
-            if (jwPlayerInstance) {
-                jwPlayerInstance.remove();
-                jwPlayerInstance = null;
-            }
-        }
-
-        function geriDon() {
-            sessionStorage.removeItem('currentDiziID');
-            document.querySelector(".filmpaneldis").classList.remove("hidden");
-            document.getElementById("bolumler").classList.add("hidden");
-            document.getElementById("geriBtn").style.display = "none";
-            currentScreen = 'anaSayfa';
-            history.replaceState({ page: 'anaSayfa' }, '', '#anaSayfa');
-        }
-
-        window.addEventListener('popstate', function(event) {
-            var currentDiziID = sessionStorage.getItem('currentDiziID');
-            if (event.state && event.state.page === 'player' && event.state.diziID && event.state.streamUrl) {
-                showBolumler(event.state.diziID);
-                showPlayer(event.state.streamUrl, event.state.diziID);
-            } else if (event.state && event.state.page === 'bolumler' && event.state.diziID) {
-                showBolumler(event.state.diziID);
-            } else {
-                sessionStorage.removeItem('currentDiziID');
-                document.querySelector(".filmpaneldis").classList.remove("hidden");
-                document.getElementById("bolumler").classList.add("hidden");
-                document.getElementById("playerpanel").style.display = "none";
-                document.getElementById("geriBtn").style.display = "none";
-                currentScreen = 'anaSayfa';
-                history.replaceState({ page: 'anaSayfa' }, '', '#anaSayfa');
-                if (jwPlayerInstance) {
-                    jwPlayerInstance.remove();
-                    jwPlayerInstance = null;
-                }
-            }
-        });
-
-        function checkInitialState() {
-            var currentDiziID = sessionStorage.getItem('currentDiziID');
-            if (currentDiziID) {
-                showBolumler(currentDiziID);
-            } else {
-                currentScreen = 'anaSayfa';
-                document.querySelector(".filmpaneldis").classList.remove("hidden");
-                document.getElementById("bolumler").classList.add("hidden");
-                document.getElementById("playerpanel").style.display = "none";
-                document.getElementById("geriBtn").style.display = "none";
-                history.replaceState({ page: 'anaSayfa' }, '', '#anaSayfa');
-            }
-        }
-
-        document.addEventListener('DOMContentLoaded', checkInitialState);
-
-        function searchSeries() {
-            var query = document.getElementById('seriesSearch').value.toLowerCase();
-            var series = document.querySelectorAll('.filmpanel');
-            series.forEach(function(serie) {
-                var title = serie.querySelector('.filmisim').textContent.toLowerCase();
-                if (title.includes(query)) {
-                    serie.style.display = "block";
-                } else {
-                    serie.style.display = "none";
-                }
-            });
-            return false;
-        }
-
-        function resetSeriesSearch() {
-            var query = document.getElementById('seriesSearch').value.toLowerCase();
-            if (query === "") {
-                var series = document.querySelectorAll('.filmpanel');
-                series.forEach(function(serie) {
-                    serie.style.display = "block";
-                });
-            }
-        }
-    </script>
-</body>
-</html>"""
-
-    # CSS stil dosyasını sizin verdiğiniz HTML'den alın
     css_styles = """
         *:not(input):not(textarea) {
             -moz-user-select: -moz-none;
@@ -346,7 +178,7 @@ def create_html_file(data):
             padding-bottom: 0px;
             width: 100%;
             overflow: hidden;
-            --tw-shadow: anio0 25px 50px -12px rgb(0 0 0 / 0.25);
+            --tw-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
             --tw-shadow-colored: 0 25px 50px -12px var(--tw-shadow-color);
             box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
         }
@@ -439,6 +271,7 @@ def create_html_file(data):
             padding: 0px;
             overflow: hidden;
             transition: border 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
         }
         .filmisimpanel {
             width: 100%;
@@ -528,7 +361,7 @@ def create_html_file(data):
             border: 1px solid #ccc;
             box-sizing: border-box;
             padding: 0px 10px;
-            background: ;
+            background: #fff;
             color: #000;
             margin: 0px 5px;
         }
@@ -702,6 +535,7 @@ def create_html_file(data):
             background: #6b3ec7;
             transition: background 0.3s;
         }
+        /* Player Panel Styles */
         .playerpanel {
             width: 100%;
             height: 100vh;
@@ -787,7 +621,7 @@ def create_html_file(data):
         }
     """
 
-    # Dizi HTML içeriğini oluştur
+    # Dizi HTML'lerini oluştur
     series_html = ""
     for idx, series in enumerate(data, 1):
         series_html += f"""
@@ -799,27 +633,239 @@ def create_html_file(data):
         </div>
         """
 
-    # JSON verisini oluştur
-    json_data = {}
-    for idx, series in enumerate(data, 1):
-        json_data[str(idx)] = {
-            "resim": series["img"],
-            "bolumler": [
-                {"ad": ep["full_name"], "link": ep["stream_url"]}
-                for ep in series["episodes"]
-            ]
-        }
+    # JSON verisi
+    json_data = create_json_data(data)
     json_data_str = json.dumps(json_data, ensure_ascii=False)
 
-    # HTML dosyasını oluştur
-    with open(html_file, "w", encoding="utf-8") as f:
-        f.write(html_template.format(css_styles=css_styles, series_html=series_html, json_data=json_data_str))
-    print(f"{html_file} başarıyla oluşturuldu!")
+    # Tam HTML template
+    html_template = f"""<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <title>TITAN TV YERLİ VOD</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css?family=PT+Sans:700i" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://kit.fontawesome.com/bbe955c5ed.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/js/splide.min.js"></script>
+    <!-- JW Player Dependency -->
+    <script src="https://ssl.p.jwpcdn.com/player/v/8.22.0/jwplayer.js"></script>
+    <style>
+        {css_styles}
+    </style>
+</head>
+<body>
+    <div class="aramapanel">
+        <div class="aramapanelsol">
+            <div class="logo"><img src="https://i.hizliresim.com/t75soiq.png"></div>
+            <div class="logoisim">TITAN TV</div>
+        </div>
+        <div class="aramapanelsag">
+            <form action="" name="ara" method="GET" onsubmit="return searchSeries()">
+                <input type="text" id="seriesSearch" placeholder="Dizi Adını Giriniz..!" class="aramapanelyazi" oninput="resetSeriesSearch()">
+                <input type="submit" value="ARA" class="aramapanelbuton">
+            </form>
+        </div>
+    </div>
+
+    <div class="filmpaneldis">
+        <div class="baslik">YERLİ DİZİLER VOD BÖLÜM</div>
+
+        {series_html}
+    </div>
+
+    <!-- Bölüm Listesi -->
+    <div id="bolumler" class="bolum-container hidden">
+        <div id="geriBtn" class="geri-btn" onclick="geriDon()">Geri</div>
+        <div id="bolumListesi" class="filmpaneldis"></div>
+    </div>
+
+    <!-- Player Panel -->
+    <div id="playerpanel" class="playerpanel">
+        <div class="player-geri-btn" onclick="geriPlayer()">Geri</div>
+        <div id="main-player"></div>
+    </div>
+
+    <script>
+        // JW Player anahtarı
+        jwplayer.key = "cLGMn8T20tGvW+0eXPhq4NNmLB57TrscPjd1IyJF84o=";
+
+        var diziler = {json_data_str};
+
+        // Mevcut ekranı takip etmek için bir değişken
+        let currentScreen = 'anaSayfa';
+        let jwPlayerInstance = null; // JW Player için
+
+        function showBolumler(diziID) {{
+            sessionStorage.setItem('currentDiziID', diziID);
+            var listContainer = document.getElementById("bolumListesi");
+            listContainer.innerHTML = "";
+            
+            if (diziler[diziID]) {{
+                diziler[diziID].bolumler.forEach(function(bolum) {{
+                    var item = document.createElement("div");
+                    item.className = "filmpanel";
+                    item.innerHTML = `
+                        <div class="filmresim"><img src="{diziler[diziID].resim}"></div>
+                        <div class="filmisimpanel">
+                            <div class="filmisim">{bolum.ad}</div>
+                        </div>
+                    `;
+                    item.onclick = function() {{
+                        showPlayer(bolum.link, diziID);
+                    }};
+                    listContainer.appendChild(item);
+                }});
+            }} else {{
+                listContainer.innerHTML = "<p>Bu dizi için bölüm bulunamadı.</p>";
+            }}
+            
+            document.querySelector(".filmpaneldis").classList.add("hidden");
+            document.getElementById("bolumler").classList.remove("hidden");
+            document.getElementById("geriBtn").style.display = "block";
+
+            currentScreen = 'bolumler';
+            history.replaceState({{ page: 'bolumler', diziID: diziID }}, '', `#bolumler-${{diziID}}`);
+        }}
+
+        function showPlayer(streamUrl, diziID) {{
+            document.getElementById("playerpanel").style.display = "flex";
+            document.getElementById("bolumler").classList.add("hidden");
+
+            currentScreen = 'player';
+            history.pushState({{ page: 'player', diziID: diziID, streamUrl: streamUrl }}, '', `#player-${{diziID}}`);
+
+            if (jwPlayerInstance) {{
+                jwPlayerInstance.remove();
+                jwPlayerInstance = null;
+            }}
+
+            document.getElementById("main-player").innerHTML = "";
+
+            document.getElementById("main-player").innerHTML = '<div id="jw-player"></div>';
+            jwPlayerInstance = jwplayer("jw-player").setup({{
+                file: streamUrl,
+                title: diziler[diziID].bolumler.find(b => b.link === streamUrl).ad,
+                image: diziler[diziID].resim,
+                width: "100%",
+                height: "100%",
+                primary: "html5",
+                autostart: true,
+                playbackRateControls: [0.5, 1, 1.5, 2]
+            }});
+        }}
+
+        function geriPlayer() {{
+            document.getElementById("playerpanel").style.display = "none";
+            document.getElementById("bolumler").classList.remove("hidden");
+
+            currentScreen = 'bolumler';
+            var currentDiziID = sessionStorage.getItem('currentDiziID');
+            history.replaceState({{ page: 'bolumler', diziID: currentDiziID }}, '', `#bolumler-${{currentDiziID}}`);
+
+            if (jwPlayerInstance) {{
+                jwPlayerInstance.remove();
+                jwPlayerInstance = null;
+            }}
+        }}
+
+        function geriDon() {{
+            sessionStorage.removeItem('currentDiziID');
+            document.querySelector(".filmpaneldis").classList.remove("hidden");
+            document.getElementById("bolumler").classList.add("hidden");
+            document.getElementById("geriBtn").style.display = "none";
+            
+            currentScreen = 'anaSayfa';
+            history.replaceState({{ page: 'anaSayfa' }}, '', '#anaSayfa');
+        }}
+
+        window.addEventListener('popstate', function(event) {{
+            var currentDiziID = sessionStorage.getItem('currentDiziID');
+            
+            if (event.state && event.state.page === 'player' && event.state.diziID && event.state.streamUrl) {{
+                showBolumler(event.state.diziID);
+                showPlayer(event.state.streamUrl, event.state.diziID);
+            }} else if (event.state && event.state.page === 'bolumler' && event.state.diziID) {{
+                showBolumler(event.state.diziID);
+            }} else {{
+                sessionStorage.removeItem('currentDiziID');
+                document.querySelector(".filmpaneldis").classList.remove("hidden");
+                document.getElementById("bolumler").classList.add("hidden");
+                document.getElementById("playerpanel").style.display = "none";
+                document.getElementById("geriBtn").style.display = "none";
+                currentScreen = 'anaSayfa';
+                history.replaceState({{ page: 'anaSayfa' }}, '', '#anaSayfa');
+
+                if (jwPlayerInstance) {{
+                    jwPlayerInstance.remove();
+                    jwPlayerInstance = null;
+                }}
+            }}
+        }});
+
+        function checkInitialState() {{
+            var currentDiziID = sessionStorage.getItem('currentDiziID');
+            if (currentDiziID) {{
+                showBolumler(currentDiziID);
+            }} else {{
+                currentScreen = 'anaSayfa';
+                document.querySelector(".filmpaneldis").classList.remove("hidden");
+                document.getElementById("bolumler").classList.add("hidden");
+                document.getElementById("playerpanel").style.display = "none";
+                document.getElementById("geriBtn").style.display = "none";
+                history.replaceState({{ page: 'anaSayfa' }}, '', '#anaSayfa');
+            }}
+        }}
+
+        document.addEventListener('DOMContentLoaded', checkInitialState);
+
+        function searchSeries() {{
+            var query = document.getElementById('seriesSearch').value.toLowerCase();
+            var series = document.querySelectorAll('.filmpanel');
+
+            series.forEach(function(serie) {{
+                var title = serie.querySelector('.filmisim').textContent.toLowerCase();
+                if (title.includes(query)) {{
+                    serie.style.display = "block";
+                }} else {{
+                    serie.style.display = "none";
+                }}
+            }});
+            return false;
+        }}
+
+        function resetSeriesSearch() {{
+            var query = document.getElementById('seriesSearch').value.toLowerCase();
+            if (query === "") {{
+                var series = document.querySelectorAll('.filmpanel');
+                series.forEach(function(serie) {{
+                    serie.style.display = "block";
+                }});
+            }}
+        }}
+    </script>
+</body>
+</html>"""
+
+    print("=== PUHUTV.HTML DOSYASI BAŞLANGICI ===")
+    print(html_template)
+    print("=== PUHUTV.HTML DOSYASI SONU ===")
+    print("\nYukarıdaki HTML kodunu kopyala ve 'puhutv.html' olarak kaydet!")
+
+def print_json_file(data):
+    json_data = create_json_data(data)
+    print("\n=== PUHUTV.JSON DOSYASI ===")
+    print(json.dumps(json_data, ensure_ascii=False, indent=4))
+    print("=== JSON SONU ===")
 
 def main():
+    print("PuhuTV verileri çekiliyor...")
     data = get_all_content()
-    create_json_file(data)  # JSON dosyasını oluştur
-    create_html_file(data)  # HTML dosyasını oluştur
+    if data:
+        print_html_file(data)
+        print_json_file(data)
+    else:
+        print("Veri çekilemedi! İnternet bağlantısını veya PuhuTV erişimini kontrol et.")
 
 if __name__ == "__main__":
     main()
