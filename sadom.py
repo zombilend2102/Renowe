@@ -1,128 +1,88 @@
-from flask import Flask, render_template_string, jsonify
 import requests
 import re
-import threading
-import time
-from datetime import datetime
 
-app = Flask(__name__)
+HEADERS = {"User-Agent": "Mozilla/5.0"}
 
-# Global variables for caching
-streams = []
-last_update = None
-update_lock = threading.Lock()
+CHANNELS = [
+    {"id": "bein1", "source_id": "selcukbeinsports1", "name": "BeIN Sports 1", "logo": "https://r2.thesportsdb.com/images/media/channel/logo/5rhmw31628798883.png", "group": "Spor"},
+    {"id": "bein1", "source_id": "selcukobs1", "name": "BeIN Sports 1", "logo": "https://r2.thesportsdb.com/images/media/channel/logo/5rhmw31628798883.png", "group": "Spor"},
+    {"id": "bein2", "source_id": "selcukbeinsports2", "name": "BeIN Sports 2", "logo": "https://r2.thesportsdb.com/images/media/channel/logo/7uv6x71628799003.png", "group": "Spor"},
+    {"id": "bein3", "source_id": "selcukbeinsports3", "name": "BeIN Sports 3", "logo": "https://r2.thesportsdb.com/images/media/channel/logo/u3117i1628798857.png", "group": "Spor"},
+    {"id": "bein4", "source_id": "selcukbeinsports4", "name": "BeIN Sports 4", "logo": "https://r2.thesportsdb.com/images/media/channel/logo/2ktmcp1628798841.png", "group": "Spor"},
+    {"id": "bein5", "source_id": "selcukbeinsports5", "name": "BeIN Sports 5", "logo": "https://r2.thesportsdb.com/images/media/channel/logo/BeIn_Sports_5_US.png", "group": "Spor"},
+    {"id": "beinmax1", "source_id": "selcukbeinsportsmax1", "name": "BeIN Sports Max 1", "logo": "https://assets.bein.com/mena/sites/3/2015/06/beIN_SPORTS_MAX1_DIGITAL_Mono.png", "group": "Spor"},
+    {"id": "beinmax2", "source_id": "selcukbeinsportsmax2", "name": "BeIN Sports Max 2", "logo": "http://tvprofil.com/img/kanali-logo/beIN_Sports_MAX_2_TR_logo_v2.png?1734011568", "group": "Spor"},
+    {"id": "tivibu1", "source_id": "selcuktivibuspor1", "name": "Tivibu Spor 1", "logo": "https://r2.thesportsdb.com/images/media/channel/logo/qadnsi1642604437.png", "group": "Spor"},
+    {"id": "tivibu2", "source_id": "selcuktivibuspor2", "name": "Tivibu Spor 2", "logo": "https://r2.thesportsdb.com/images/media/channel/logo/kuasdm1642604455.png", "group": "Spor"},
+    {"id": "tivibu3", "source_id": "selcuktivibuspor3", "name": "Tivibu Spor 3", "logo": "https://r2.thesportsdb.com/images/media/channel/logo/slwrz41642604502.png", "group": "Spor"},
+    {"id": "tivibu4", "source_id": "selcuktivibuspor4", "name": "Tivibu Spor 4", "logo": "https://r2.thesportsdb.com/images/media/channel/logo/59bqi81642604517.png", "group": "Spor"},
+    {"id": "ssport1", "source_id": "selcukssport", "name": "S Sport 1", "logo": "https://itv224226.tmp.tivibu.com.tr:6430/images/poster/20230302923239.png", "group": "Spor"},
+    {"id": "ssport2", "source_id": "selcukssport2", "name": "S Sport 2", "logo": "https://itv224226.tmp.tivibu.com.tr:6430/images/poster/20230302923321.png", "group": "Spor"},
+    {"id": "smart1", "source_id": "selcuksmartspor", "name": "Smart Spor 1", "logo": "https://dsmart-static-v2.ercdn.net//resize-width/1920/content/p/el/11909/Thumbnail.png", "group": "Spor"},
+    {"id": "smart2", "source_id": "selcuksmartspor2", "name": "Smart Spor 2", "logo": "https://www.dsmart.com.tr/api/v1/public/images/kanallar/SPORSMART2-gri.png", "group": "Spor"},
+    {"id": "aspor", "source_id": "selcukaspor", "name": "A Spor", "logo": "https://feo.kablowebtv.com/resize/168A635D265A4328C2883FB4CD8FF/0/0/Vod/HLS/9d28401f-2d4e-4862-85e2-69773f6f45f4.png", "group": "Spor"},
+    {"id": "eurosport1", "source_id": "selcukeurosport1", "name": "Eurosport 1", "logo": "https://feo.kablowebtv.com/resize/168A635D265A4328C2883FB4CD8FF/0/0/Vod/HLS/54cad412-5f3a-4184-b5fc-d567a5de7160.png", "group": "Spor"},
+    {"id": "eurosport2", "source_id": "selcukeurosport2", "name": "Eurosport 2", "logo": "https://feo.kablowebtv.com/resize/168A635D265A4328C2883FB4CD8FF/0/0/Vod/HLS/a4cbdd15-1509-408f-a108-65b8f88f2066.png", "group": "Spor"},
+]
 
-# Entry URL
-ENTRY_URL = "https://www.selcuksportshd78.is/"
+def find_working_domain(start=6, end=100):
+    print("sporcafe domainleri taranıyor")
+    for i in range(start, end + 1):
+        url = f"https://www.sporcafe{i}.xyz/"
+        try:
+            res = requests.get(url, headers=HEADERS, timeout=5)
+            if res.status_code == 200 and "uxsyplayer" in res.text:
+                print(f"Aktif domain: {url}")
+                return res.text, url
+        except:
+            continue
+    print("Aktif domain bulunamadı.")
+    return None, None
 
-# Channels dictionary
-CHANNELS = {
-    "selcukbeinsports1": "beIN Sports 1",
-    "selcukobs1": "beIN Sports 1",
-    "selcukbeinsports2": "beIN Sports 2",
-    "selcukbeinsports3": "beIN Sports 3",
-    "selcukbeinsports4": "beIN Sports 4",
-    "selcukbeinsports5": "beIN Sports 5",
-    "selcukbeinsportsmax1": "beIN Sports Max 1",
-    "selcukbeinsportsmax2": "beIN Sports Max 2",
-    "selcukssport": "Saran Sports",
-    "selcukssport2": "Saran Sports 2",
-    "selcuksmartspor": "Smart Spor",
-    "selcuksmartspor2": "Smart Spor 2",
-    "selcuktivibuspor1": "Tivibu Spor 1",
-    "selcuktivibuspor2": "Tivibu Spor 2",
-    "selcuktivibuspor3": "Tivibu Spor 3",
-    "selcuktivibuspor4": "Tivibu Spor 4"
-}
+def find_stream_domain(html):
+    match = re.search(r'https?://(main\.uxsyplayer[0-9a-zA-Z\-]+\.click)', html)
+    return f"https://{match.group(1)}" if match else None
 
-def get_active_site():
-    try:
-        response = requests.get(ENTRY_URL, timeout=10)
-        if response.status_code == 200:
-            match = re.search(r'url[](https://[^"]+)', response.text, re.IGNORECASE)
-            if match:
-                return match.group(1)
-    except Exception:
-        pass
-    return None
+def extract_base_url(html):
+    match = re.search(r'this\.adsBaseUrl\s*=\s*[\'"]([^\'"]+)', html)
+    return match.group(1) if match else None
 
-def get_stream_links(active_site):
-    if not active_site:
-        return []
+def fetch_streams(domain, referer):
+    result = []
+    for ch in CHANNELS:
+        full_url = f"{domain}/index.php?id={ch['source_id']}"
+        try:
+            r = requests.get(full_url, headers={**HEADERS, "Referer": referer}, timeout=5)
+            if r.status_code == 200:
+                base = extract_base_url(r.text)
+                if base:
+                    stream = f"{base}{ch['source_id']}/playlist.m3u8"
+                    print(f"{ch['name']} → {stream}")
+                    result.append((ch, stream))
+        except:
+            pass
+    return result
+
+def generate_html(streams, filename="sadom.html"):
+    print(f"\nHTML dosyası yazılıyor: {filename}")
     
-    try:
-        response = requests.get(active_site, timeout=10)
-        if response.status_code != 200:
-            return []
-        
-        iframe_match = re.search(r'https://[^"]+/index\.php\?id=selcukbeinsports1', response.text)
-        if not iframe_match:
-            return []
-        
-        base_url = re.sub(r'selcukbeinsports1', '', iframe_match.group(0))
-        
-        stream_links = []
-        for channel_id, channel_name in CHANNELS.items():
-            url = base_url + channel_id
-            try:
-                source = requests.get(url, timeout=10).text
-                # Find m3u8 URL
-                m3u8_match = re.search(r[](https://[^'"]+/live/[^'"]+/playlist\.m3u8)', source)
-                if m3u8_match:
-                    stream_url = m3u8_match.group(1)
-                else:
-                    base_match = re.search(r[](https://[^'"]+/live/)', source)
-                    if base_match:
-                        stream_url = base_match.group(1) + f"{channel_id}/playlist.m3u8"
-                    else:
-                        continue
-                
-                stream_url = re.sub(r'[\'";].*$', '', stream_url).strip()
-                if stream_url and 'http' in stream_url:  # Basic URL check
-                    stream_links.append({
-                        'url': stream_url,  # No base64, direct URL
-                        'name': channel_name
-                    })
-            except Exception:
-                continue
-        
-        return stream_links
-    except Exception:
-        return []
-
-def update_streams():
-    global streams, last_update
-    with update_lock:
-        active_site = get_active_site()
-        if active_site:
-            streams = get_stream_links(active_site)
-            last_update = datetime.now().isoformat()
-        else:
-            streams = []
-
-# Initial update
-update_streams()
-
-# Auto-update every 3 minutes
-def auto_update():
-    while True:
-        time.sleep(180)  # 3 minutes
-        update_streams()
-
-threading.Thread(target=auto_update, daemon=True).start()
-
-# HTML Template
-HTML_TEMPLATE = """
-<!DOCTYPE html>
-<html lang="tr">
+    # HTML şablonunun başlangıcı
+    html_template = """<!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TITAN TV</title>
     <style>
         *:not(input):not(textarea) {
+            -moz-user-select: -moz-none;
+            -khtml-user-select: none;
+            -webkit-user-select: none;
+            -o-user-select: none;
+            -ms-user-select: none;
             user-select: none;
         }
+
         body {
             margin: 0;
             padding: 0;
@@ -130,12 +90,17 @@ HTML_TEMPLATE = """
             color: white;
             font-family: sans-serif;
             font-weight: 500;
+            -webkit-tap-highlight-color: transparent;
             line-height: 20px;
+            -webkit-text-size-adjust: 100%;
+            text-decoration: none;
         }
+
         a {
             text-decoration: none;
             color: white;
         }
+
         .header {
             display: flex;
             justify-content: space-between;
@@ -149,24 +114,29 @@ HTML_TEMPLATE = """
             top: 0;
             z-index: 99999;
         }
+
         .logo {
             width: 55px;
             height: 55px;
             margin-right: 5px;
         }
+
         .title {
             font-size: 16px;
             margin-right: auto;
             color: #e1e1e1;
         }
+
         .subtitle {
             font-size: 16px;
         }
+
         .channel-list {
             padding: 0;
             margin: 0;
             margin-top: 76px;
         }
+
         .channel-item {
             display: flex;
             align-items: center;
@@ -175,9 +145,11 @@ HTML_TEMPLATE = """
             cursor: pointer;
             border-bottom: 2px solid #9400d3;
         }
+
         .channel-item:last-child {
             border-bottom: none;
         }
+
         .channel-item a {
             text-decoration: none;
             color: #e1e1e1;
@@ -186,15 +158,19 @@ HTML_TEMPLATE = """
             align-items: center;
             width: 100%;
         }
+
         .channel-item img {
             width: 55px;
             height: 55px;
+            border-radius: 0px;
             margin-right: 10px;
         }
+
         .channel-item:hover {
             background-color: rgba(136, 141, 147, 0.9);
             outline: none;
         }
+
         #player-container {
             display: none;
             position: fixed;
@@ -205,22 +181,10 @@ HTML_TEMPLATE = """
             background-color: #000;
             z-index: 100000;
         }
+
         #player {
             width: 100%;
             height: 100%;
-        }
-        .refresh-btn {
-            background: #9400d3;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            cursor: pointer;
-            margin-left: 10px;
-        }
-        .status {
-            font-size: 12px;
-            color: #888;
-            margin-left: 10px;
         }
     </style>
 </head>
@@ -229,96 +193,71 @@ HTML_TEMPLATE = """
         <img src="https://i.hizliresim.com/t75soiq.png" alt="Logo" class="logo">
         <div class="title">
             TITAN TV
-            <div class="subtitle">
-                <button class="refresh-btn" onclick="location.reload()">Yenile</button>
-                <span class="status">Son Güncelleme: {{ last_update or 'Hiç' }}</span>
-            </div>
+            <div class="subtitle"></div>
         </div>
     </div>
     <div class="channel-list">
-        {% if streams %}
-            {% for stream in streams %}
-            <div class="channel-item" data-href="{{ stream.url }}">
-                <a>
-                    <img src="https://i.hizliresim.com/t75soiq.png" alt="Logo">
-                    <span>{{ stream.name }}</span>
-                </a>
-            </div>
-            {% endfor %}
-        {% else %}
-            <div class="channel-item">
-                <a>
-                    <span>Yayın bulunamadı. Lütfen yenileyin.</span>
-                </a>
-            </div>
-        {% endif %}
-    </div>
+"""
+
+    # Kanal listesini ekle
+    for ch, url in streams:
+        html_template += f"""        <div class='channel-item' data-channel='{ch["name"]}' data-href='{url}'>
+            <a><img src='{ch["logo"]}' alt='Logo'><span>{ch["name"]}</span></a>
+        </div>
+"""
+
+    # HTML şablonunun sonu
+    html_template += """    </div>
+
     <div id="player-container">
-        <div id="player"></div>
+        <iframe id="player" frameborder="0" allowfullscreen></iframe>
     </div>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/clappr/latest/clappr.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
     <script>
-        let player = null;
-        $(document).ready(function() {
-            $('.channel-item').on('click', function() {
-                const href = $(this).data('href');
-                if (!href) return;
-                $('#player-container').show();
-                if (player) {
-                    player.destroy();
-                }
-                player = new Clappr.Player({
-                    source: href,
-                    parentId: "#player",
-                    mimeType: "application/x-mpegURL",
-                    mediacontrol: { seekbar: "#181929" },
-                    poster: "https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExMnNzcXA1eHhyNzNvc3U4Z3NmdXE5amFiNWFuNjNocWR3ZXpjcXNyYSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/z013AJDZs99eUWszPa/giphy.gif",
-                    width: '100%',
-                    height: '100%',
-                    autoPlay: true,
-                    hlsjsConfig: {
-                        enableWorker: true,
-                        debug: false
-                    }
-                });
-                const playerElement = document.getElementById('player-container');
-                if (playerElement.requestFullscreen) {
-                    playerElement.requestFullscreen();
-                } else if (playerElement.mozRequestFullScreen) {
-                    playerElement.mozRequestFullScreen();
-                } else if (playerElement.webkitRequestFullscreen) {
-                    playerElement.webkitRequestFullscreen();
-                } else if (playerElement.msRequestFullscreen) {
-                    playerElement.msRequestFullscreen();
-                }
+        document.querySelectorAll('.channel-item').forEach(item => {
+            item.addEventListener('click', function() {
+                const channelName = this.getAttribute('data-channel');
+                const channelUrl = this.getAttribute('data-href');
+                
+                document.querySelector('.subtitle').textContent = channelName;
+                document.getElementById('player-container').style.display = 'block';
+                
+                const playerIframe = document.getElementById('player');
+                playerIframe.src = `https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=${encodeURIComponent(channelUrl)}`;
             });
-            document.addEventListener('fullscreenchange', function() {
-                if (!document.fullscreenElement) {
-                    $('#player-container').hide();
-                    if (player) {
-                        player.destroy();
-                        player = null;
-                    }
-                }
-            });
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const playerIframe = document.getElementById('player');
+                playerIframe.src = '';
+                document.getElementById('player-container').style.display = 'none';
+                document.querySelector('.subtitle').textContent = '';
+            }
         });
     </script>
 </body>
-</html>
-"""
+</html>"""
 
-@app.route('/')
-def index():
-    global streams, last_update
-    with update_lock:
-        return render_template_string(HTML_TEMPLATE, streams=streams, last_update=last_update)
+    # HTML dosyasını yaz
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(html_template)
+    print("Tamamlandı. Kanal sayısı:", len(streams))
 
-@app.route('/refresh')
-def refresh():
-    update_streams()
-    return jsonify({"status": "updated", "streams_count": len(streams), "last_update": last_update})
+def main():
+    html, referer = find_working_domain()
+    if not html:
+        return
+    stream_domain = find_stream_domain(html)
+    if not stream_domain:
+        print("Yayın domaini bulunamadı.")
+        return
+    print(f"Yayın domaini: {stream_domain}")
+    streams = fetch_streams(stream_domain, referer)
+    if streams:
+        generate_html(streams)
+    else:
+        print("Hiçbir yayın alınamadı.")
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=False)
+if __name__ == "__main__":
+    main()
