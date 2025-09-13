@@ -3,6 +3,7 @@ from tqdm import tqdm
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 import json
+import os
 
 main_url = "https://puhutv.com/"
 diziler_url = "https://puhutv.com/dizi"
@@ -14,8 +15,8 @@ def get_series_details(series_id):
         r = requests.get(url, headers=headers, timeout=10)
         if r.status_code == 200:
             return r.json()[0]
-    except:
-        pass
+    except Exception as e:
+        print(f"Series details error for ID {series_id}: {str(e)}")
     return {"title": "", "seasons": []}
 
 def get_stream_urls(season_slug):
@@ -46,7 +47,8 @@ def get_stream_urls(season_slug):
                     "stream_url": f"https://dygvideo.dygdigital.com/api/redirect?PublisherId=29&ReferenceId={ep['video_id']}&SecretKey=NtvApiSecret2014*&.m3u8"
                 })
         return episodes
-    except:
+    except Exception as e:
+        print(f"Stream URLs error for {season_slug}: {str(e)}")
         return []
 
 def get_all_content():
@@ -132,7 +134,6 @@ def print_html_file(data):
         print("Hata: Veri yok, HTML oluşturulamadı!")
         return
 
-    # CSS stilleri (senin orijinalinden)
     css_styles = """
         *:not(input):not(textarea) {
             -moz-user-select: -moz-none;
@@ -619,7 +620,6 @@ def print_html_file(data):
         }
     """
 
-    # Dizi HTML'lerini oluştur (ana sayfa panelleri)
     series_html = ""
     for idx, series in enumerate(data, 1):
         series_html += f"""
@@ -631,19 +631,13 @@ def print_html_file(data):
         </div>
         """
 
-    # JSON verisi oluştur
     json_data = create_json_data(data)
     json_data_str = json.dumps(json_data, ensure_ascii=False)
 
-    # JavaScript template'ini düzgün escape et (f-string içinde {{ }} ile)
-    js_template = f"""        // JW Player anahtarı
-        jwplayer.key = "cLGMn8T20tGvW+0eXPhq4NNmLB57TrscPjd1IyJF84o=";
-
+    js_template = f"""        jwplayer.key = "cLGMn8T20tGvW+0eXPhq4NNmLB57TrscPjd1IyJF84o=";
         var diziler = {json_data_str};
-
-        // Mevcut ekranı takip etmek için bir değişken
         let currentScreen = 'anaSayfa';
-        let jwPlayerInstance = null; // JW Player için
+        let jwPlayerInstance = null;
 
         function showBolumler(diziID) {{
             sessionStorage.setItem('currentDiziID', diziID);
@@ -672,7 +666,6 @@ def print_html_file(data):
             document.querySelector(".filmpaneldis").classList.add("hidden");
             document.getElementById("bolumler").classList.remove("hidden");
             document.getElementById("geriBtn").style.display = "block";
-
             currentScreen = 'bolumler';
             history.replaceState({{ page: 'bolumler', diziID: diziID }}, '', `#bolumler-${{diziID}}`);
         }}
@@ -680,17 +673,13 @@ def print_html_file(data):
         function showPlayer(streamUrl, diziID) {{
             document.getElementById("playerpanel").style.display = "flex";
             document.getElementById("bolumler").classList.add("hidden");
-
             currentScreen = 'player';
             history.pushState({{ page: 'player', diziID: diziID, streamUrl: streamUrl }}, '', `#player-${{diziID}}`);
-
             if (jwPlayerInstance) {{
                 jwPlayerInstance.remove();
                 jwPlayerInstance = null;
             }}
-
             document.getElementById("main-player").innerHTML = "";
-
             document.getElementById("main-player").innerHTML = '<div id="jw-player"></div>';
             jwPlayerInstance = jwplayer("jw-player").setup({{
                 file: streamUrl,
@@ -707,11 +696,9 @@ def print_html_file(data):
         function geriPlayer() {{
             document.getElementById("playerpanel").style.display = "none";
             document.getElementById("bolumler").classList.remove("hidden");
-
             currentScreen = 'bolumler';
             var currentDiziID = sessionStorage.getItem('currentDiziID');
             history.replaceState({{ page: 'bolumler', diziID: currentDiziID }}, '', `#bolumler-${{currentDiziID}}`);
-
             if (jwPlayerInstance) {{
                 jwPlayerInstance.remove();
                 jwPlayerInstance = null;
@@ -723,14 +710,12 @@ def print_html_file(data):
             document.querySelector(".filmpaneldis").classList.remove("hidden");
             document.getElementById("bolumler").classList.add("hidden");
             document.getElementById("geriBtn").style.display = "none";
-            
             currentScreen = 'anaSayfa';
             history.replaceState({{ page: 'anaSayfa' }}, '', '#anaSayfa');
         }}
 
         window.addEventListener('popstate', function(event) {{
             var currentDiziID = sessionStorage.getItem('currentDiziID');
-            
             if (event.state && event.state.page === 'player' && event.state.diziID && event.state.streamUrl) {{
                 showBolumler(event.state.diziID);
                 showPlayer(event.state.streamUrl, event.state.diziID);
@@ -744,7 +729,6 @@ def print_html_file(data):
                 document.getElementById("geriBtn").style.display = "none";
                 currentScreen = 'anaSayfa';
                 history.replaceState({{ page: 'anaSayfa' }}, '', '#anaSayfa');
-
                 if (jwPlayerInstance) {{
                     jwPlayerInstance.remove();
                     jwPlayerInstance = null;
@@ -771,7 +755,6 @@ def print_html_file(data):
         function searchSeries() {{
             var query = document.getElementById('seriesSearch').value.toLowerCase();
             var series = document.querySelectorAll('.filmpanel');
-
             series.forEach(function(serie) {{
                 var title = serie.querySelector('.filmisim').textContent.toLowerCase();
                 if (title.includes(query)) {{
@@ -794,7 +777,6 @@ def print_html_file(data):
         }}
     """
 
-    # Tam HTML template (f-string ile birleştir)
     html_template = f"""<!DOCTYPE html>
 <html lang="tr">
 <head>
@@ -805,7 +787,6 @@ def print_html_file(data):
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script src="https://kit.fontawesome.com/bbe955c5ed.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/js/splide.min.js"></script>
-    <!-- JW Player Dependency -->
     <script src="https://ssl.p.jwpcdn.com/player/v/8.22.0/jwplayer.js"></script>
     <style>
         {css_styles}
@@ -827,17 +808,14 @@ def print_html_file(data):
 
     <div class="filmpaneldis">
         <div class="baslik">YERLİ DİZİLER VOD BÖLÜM</div>
-
         {series_html}
     </div>
 
-    <!-- Bölüm Listesi -->
     <div id="bolumler" class="bolum-container hidden">
         <div id="geriBtn" class="geri-btn" onclick="geriDon()">Geri</div>
         <div id="bolumListesi" class="filmpaneldis"></div>
     </div>
 
-    <!-- Player Panel -->
     <div id="playerpanel" class="playerpanel">
         <div class="player-geri-btn" onclick="geriPlayer()">Geri</div>
         <div id="main-player"></div>
@@ -849,10 +827,19 @@ def print_html_file(data):
 </body>
 </html>"""
 
+    # Konsola yazdır
     print("=== PUHUTV.HTML DOSYASI BAŞLANGICI ===")
     print(html_template)
     print("=== PUHUTV.HTML DOSYASI SONU ===")
-    print("\nYukarıdaki HTML kodunu kopyala ve 'puhutv.html' olarak kaydet! (GitHub Actions log'undan kopyala.)")
+
+    # Dosya yazmayı dene (izin varsa)
+    try:
+        with open("puhutv.html", "w", encoding="utf-8") as f:
+            f.write(html_template)
+        print("puhutv.html dosyası başarıyla oluşturuldu!")
+    except Exception as e:
+        print(f"Dosya yazma hatası: {str(e)}")
+        print("Dosya oluşturulamadı, yukarıdaki HTML kodunu kopyala ve 'puhutv.html' olarak kaydet!")
 
 def print_json_file(data):
     json_data = create_json_data(data)
