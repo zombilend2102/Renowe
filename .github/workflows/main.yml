@@ -1,38 +1,44 @@
-name: Puhutv Scraper
+name: Scrape PuhuTV
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   schedule:
-    - cron: '0 0 * * *'  # Her gün gece yarısı çalıştır (opsiyonel)
-  workflow_dispatch:  # Manuel tetikleme için
+    - cron: '0 0 * * *' # Her gün 00:00'da çalışır
+  workflow_dispatch: # Manuel tetikleme için
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    
-    # İzinler: Dosya yazma/commmit için zorunlu
-    permissions:
-      contents: write  # Commit ve push için
-    
+
     steps:
-    - uses: actions/checkout@v4  # Repo'yu çek (fetch-depth: 0 ile tam history al)
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.x'
+        python-version: '3.9'
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install requests tqdm beautifulsoup4 pyyaml
+        pip install requests beautifulsoup4 tqdm
 
-    - name: Run Puhutv script
+    - name: Run PuhuTV scraper
       run: python puhutv.py
 
     - name: Commit and push puhutv.html
-      uses: stefanzweifel/git-auto-commit-action@v5
-      with:
-        commit_message: "Güncel puhutv.html eklendi"
-        file_pattern: puhutv.html  # Sadece bu dosyayı takip et
+      run: |
+        git config --global user.name 'GitHub Action'
+        git config --global user.email 'action@github.com'
+        git add puhutv.html
+        git commit -m "Update puhutv.html with latest scrape" || echo "No changes to commit"
+        git push
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Handle failure
+      if: failure()
+      run: echo "Scraper failed, check logs for details"
