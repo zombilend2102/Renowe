@@ -3,13 +3,12 @@ from tqdm import tqdm
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 import json
-import yaml
 import os
 
 main_url = "https://puhutv.com/"
 diziler_url = "https://puhutv.com/dizi"
 html_file = "puhutv.html"
-yml_file = "puhutv.yml"
+json_file = "puhutv.json"
 
 def get_series_details(series_id):
     url = f"https://appservice.puhutv.com/service/serie/getSerieInformations?id={series_id}"
@@ -54,9 +53,12 @@ def get_all_content():
         return []
 
     series_list = []
+    seen_series = set()  # Aynı dizilerin tekrar çekilmesini önlemek için küme
     for item in container_items:
         for content in item["items"]:
-            series_list.append(content)
+            if content["id"] not in seen_series:  # Aynı ID kontrolü
+                seen_series.add(content["id"])
+                series_list.append(content)
 
     all_series = []
     for series in tqdm(series_list, desc="Processing Series"):
@@ -70,6 +72,7 @@ def get_all_content():
             continue
 
         temp_series = {
+            "id": series_id,
             "name": series_name,
             "img": series_img,
             "url": urljoin(main_url, series_slug),
@@ -90,8 +93,23 @@ def get_all_content():
 
     return all_series
 
+def create_json_file(data):
+    json_data = {}
+    for idx, series in enumerate(data, 1):
+        json_data[str(idx)] = {
+            "resim": series["img"],
+            "bolumler": [
+                {"ad": ep["full_name"], "link": ep["stream_url"]}
+                for ep in series["episodes"]
+            ]
+        }
+    
+    with open(json_file, "w", encoding="utf-8") as f:
+        json.dump(json_data, f, ensure_ascii=False, indent=4)
+    print(f"{json_file} başarıyla oluşturuldu!")
+
 def create_html_file(data):
-    html_template = '''<!DOCTYPE html>
+    html_template = """<!DOCTYPE html>
 <html lang="tr">
 <head>
     <title>TITAN TV YERLİ VOD</title>
@@ -103,6 +121,188 @@ def create_html_file(data):
     <script src="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/js/splide.min.js"></script>
     <script src="https://ssl.p.jwpcdn.com/player/v/8.22.0/jwplayer.js"></script>
     <style>
+        /* [Buradaki stil kısmı sizin verdiğiniz HTML'deki stil ile aynı kalacak] */
+        {css_styles}
+    </style>
+</head>
+<body>
+    <div class="aramapanel">
+        <div class="aramapanelsol">
+            <div class="logo"><img src="https://i.hizliresim.com/t75soiq.png"></div>
+            <div class="logoisim">TITAN TV</div>
+        </div>
+        <div class="aramapanelsag">
+            <form action="" name="ara" method="GET" onsubmit="return searchSeries()">
+                <input type="text" id="seriesSearch" placeholder="Dizi Adını Giriniz..!" class="aramapanelyazi" oninput="resetSeriesSearch()">
+                <input type="submit" value="ARA" class="aramapanelbuton">
+            </form>
+        </div>
+    </div>
+
+    <div class="filmpaneldis">
+        <div class="baslik">YERLİ DİZİLER VOD BÖLÜM</div>
+        {series_html}
+    </div>
+
+    <div id="bolumler" class="bolum-container hidden">
+        <div id="geriBtn" class="geri-btn" onclick="geriDon()">Geri</div>
+        <div id="bolumListesi" class="filmpaneldis"></div>
+    </div>
+
+    <div id="playerpanel" class="playerpanel">
+        <div class="player-geri-btn" onclick="geriPlayer()">Geri</div>
+        <div id="main-player"></div>
+    </div>
+
+    <script>
+        jwplayer.key = "cLGMn8T20tGvW+0eXPhq4NNmLB57TrscPjd1IyJF84o=";
+        var diziler = {json_data};
+
+        let currentScreen = 'anaSayfa';
+        let jwPlayerInstance = null;
+
+        function showBolumler(diziID) {
+            sessionStorage.setItem('currentDiziID', diziID);
+            var listContainer = document.getElementById("bolumListesi");
+            listContainer.innerHTML = "";
+            
+            if (diziler[diziID]) {
+                diziler[diziID].bolumler.forEach(function(bolum) {
+                    var item = document.createElement("div");
+                    item.className = "filmpanel";
+                    item.innerHTML = `
+                        <div class="filmresim"><img src="${diziler[diziID].resim}"></div>
+                        <div class="filmisimpanel">
+                            <div class="filmisim">${bolum.ad}</div>
+                        </div>
+                    `;
+                    item.onclick = function() {
+                        showPlayer(bolum.link, diziID);
+                    };
+                    listContainer.appendChild(item);
+                });
+            } else {
+                listContainer.innerHTML = "<p>Bu dizi için bölüm bulunamadı.</p>";
+            }
+            
+            document.querySelector(".filmpaneldis").classList.add("hidden");
+            document.getElementById("bolumler").classList.remove("hidden");
+            document.getElementById("geriBtn").style.display = "block";
+            currentScreen = 'bolumler';
+            history.replaceState({ page: 'bolumler', diziID: diziID }, '', `#bolumler-${diziID}`);
+        }
+
+        function showPlayer(streamUrl, diziID) {
+            document.getElementById("playerpanel").style.display = "flex";
+            document.getElementById("bolumler").classList.add("hidden");
+            currentScreen = 'player';
+            history.pushState({ page: 'player', diziID: diziID, streamUrl: streamUrl }, '', `#player-${diziID}`);
+            if (jwPlayerInstance) {
+                jwPlayerInstance.remove();
+                jwPlayerInstance = null;
+            }
+            document.getElementById("main-player").innerHTML = "";
+            document.getElementById("main-player").innerHTML = '<div id="jw-player"></div>';
+            jwPlayerInstance = jwplayer("jw-player").setup({
+                file: streamUrl,
+                title: diziler[diziID].bolumler.find(b => b.link === streamUrl).ad,
+                image: diziler[diziID].resim,
+                width: "100%",
+                height: "100%",
+                primary: "html5",
+                autostart: true,
+                playbackRateControls: [0.5, 1, 1.5, 2]
+            });
+        }
+
+        function geriPlayer() {
+            document.getElementById("playerpanel").style.display = "none";
+            document.getElementById("bolumler").classList.remove("hidden");
+            currentScreen = 'bolumler';
+            var currentDiziID = sessionStorage.getItem('currentDiziID');
+            history.replaceState({ page: 'bolumler', diziID: currentDiziID }, '', `#bolumler-${currentDiziID}`);
+            if (jwPlayerInstance) {
+                jwPlayerInstance.remove();
+                jwPlayerInstance = null;
+            }
+        }
+
+        function geriDon() {
+            sessionStorage.removeItem('currentDiziID');
+            document.querySelector(".filmpaneldis").classList.remove("hidden");
+            document.getElementById("bolumler").classList.add("hidden");
+            document.getElementById("geriBtn").style.display = "none";
+            currentScreen = 'anaSayfa';
+            history.replaceState({ page: 'anaSayfa' }, '', '#anaSayfa');
+        }
+
+        window.addEventListener('popstate', function(event) {
+            var currentDiziID = sessionStorage.getItem('currentDiziID');
+            if (event.state && event.state.page === 'player' && event.state.diziID && event.state.streamUrl) {
+                showBolumler(event.state.diziID);
+                showPlayer(event.state.streamUrl, event.state.diziID);
+            } else if (event.state && event.state.page === 'bolumler' && event.state.diziID) {
+                showBolumler(event.state.diziID);
+            } else {
+                sessionStorage.removeItem('currentDiziID');
+                document.querySelector(".filmpaneldis").classList.remove("hidden");
+                document.getElementById("bolumler").classList.add("hidden");
+                document.getElementById("playerpanel").style.display = "none";
+                document.getElementById("geriBtn").style.display = "none";
+                currentScreen = 'anaSayfa';
+                history.replaceState({ page: 'anaSayfa' }, '', '#anaSayfa');
+                if (jwPlayerInstance) {
+                    jwPlayerInstance.remove();
+                    jwPlayerInstance = null;
+                }
+            }
+        });
+
+        function checkInitialState() {
+            var currentDiziID = sessionStorage.getItem('currentDiziID');
+            if (currentDiziID) {
+                showBolumler(currentDiziID);
+            } else {
+                currentScreen = 'anaSayfa';
+                document.querySelector(".filmpaneldis").classList.remove("hidden");
+                document.getElementById("bolumler").classList.add("hidden");
+                document.getElementById("playerpanel").style.display = "none";
+                document.getElementById("geriBtn").style.display = "none";
+                history.replaceState({ page: 'anaSayfa' }, '', '#anaSayfa');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', checkInitialState);
+
+        function searchSeries() {
+            var query = document.getElementById('seriesSearch').value.toLowerCase();
+            var series = document.querySelectorAll('.filmpanel');
+            series.forEach(function(serie) {
+                var title = serie.querySelector('.filmisim').textContent.toLowerCase();
+                if (title.includes(query)) {
+                    serie.style.display = "block";
+                } else {
+                    serie.style.display = "none";
+                }
+            });
+            return false;
+        }
+
+        function resetSeriesSearch() {
+            var query = document.getElementById('seriesSearch').value.toLowerCase();
+            if (query === "") {
+                var series = document.querySelectorAll('.filmpanel');
+                series.forEach(function(serie) {
+                    serie.style.display = "block";
+                });
+            }
+        }
+    </script>
+</body>
+</html>"""
+
+    # CSS stil dosyasını sizin verdiğiniz HTML'den alın
+    css_styles = """
         *:not(input):not(textarea) {
             -moz-user-select: -moz-none;
             -khtml-user-select: none;
@@ -146,7 +346,7 @@ def create_html_file(data):
             padding-bottom: 0px;
             width: 100%;
             overflow: hidden;
-            --tw-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+            --tw-shadow: anio0 25px 50px -12px rgb(0 0 0 / 0.25);
             --tw-shadow-colored: 0 25px 50px -12px var(--tw-shadow-color);
             box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
         }
@@ -239,7 +439,6 @@ def create_html_file(data):
             padding: 0px;
             overflow: hidden;
             transition: border 0.3s ease, box-shadow 0.3s ease;
-            cursor: pointer;
         }
         .filmisimpanel {
             width: 100%;
@@ -586,278 +785,41 @@ def create_html_file(data):
                 height: calc(100% - 60px);
             }
         }
-    </style>
-</head>
-<body>
-    <div class="aramapanel">
-        <div class="aramapanelsol">
-            <div class="logo"><img src="https://i.hizliresim.com/t75soiq.png"></div>
-            <div class="logoisim">TITAN TV</div>
-        </div>
-        <div class="aramapanelsag">
-            <form action="" name="ara" method="GET" onsubmit="return searchSeries()">
-                <input type="text" id="seriesSearch" placeholder="Dizi Adını Giriniz..!" class="aramapanelyazi" oninput="resetSeriesSearch()">
-                <input type="submit" value="ARA" class="aramapanelbuton">
-            </form>
-        </div>
-    </div>
+    """
 
-    <div class="filmpaneldis">
-        <div class="baslik">YERLİ DİZİLER VOD BÖLÜM</div>
-        {SERIES_PANELS}
-    </div>
-
-    <div id="bolumler" class="bolum-container hidden">
-        <div id="geriBtn" class="geri-btn" onclick="geriDon()">Geri</div>
-        <div id="bolumListesi" class="filmpaneldis"></div>
-    </div>
-
-    <div id="playerpanel" class="playerpanel">
-        <div class="player-geri-btn" onclick="geriPlayer()">Geri</div>
-        <div id="main-player"></div>
-    </div>
-
-    <script>
-        jwplayer.key = "cLGMn8T20tGvW+0eXPhq4NNmLB57TrscPjd1IyJF84o=";
-
-        var diziler = {DIZILER_JS};
-
-        let currentScreen = 'anaSayfa';
-        let jwPlayerInstance = null;
-
-        function showBolumler(diziID) {
-            console.log('showBolumler called with diziID:', diziID);
-            console.log('diziler object keys:', Object.keys(diziler));
-            sessionStorage.setItem('currentDiziID', diziID);
-            var listContainer = document.getElementById("bolumListesi");
-            listContainer.innerHTML = "";
-            
-            if (diziler[diziID]) {
-                console.log('Found diziler for ID:', diziID, diziler[diziID]);
-                console.log('Number of episodes:', diziler[diziID].bolumler.length);
-                diziler[diziID].bolumler.forEach(function(bolum, index) {
-                    var item = document.createElement("div");
-                    item.className = "filmpanel";
-                    item.innerHTML = `
-                        <div class="filmresim"><img src="${diziler[diziID].resim}"></div>
-                        <div class="filmisimpanel">
-                            <div class="filmisim">${bolum.ad}</div>
-                        </div>
-                    `;
-                    item.onclick = function() {
-                        console.log('Episode clicked:', bolum.ad, bolum.link);
-                        showPlayer(bolum.link, diziID);
-                    };
-                    listContainer.appendChild(item);
-                });
-                console.log('Appended', diziler[diziID].bolumler.length, 'episodes to listContainer');
-            } else {
-                console.log('No episodes found for diziID:', diziID);
-                listContainer.innerHTML = "<p>Bu dizi için bölüm bulunamadı.</p>";
-            }
-            
-            document.querySelector(".filmpaneldis").classList.add("hidden");
-            document.getElementById("bolumler").classList.remove("hidden");
-            document.getElementById("geriBtn").style.display = "block";
-
-            currentScreen = 'bolumler';
-            history.replaceState({ page: 'bolumler', diziID: diziID }, '', `#bolumler-${diziID}`);
-        }
-
-        function showPlayer(streamUrl, diziID) {
-            console.log('showPlayer called with streamUrl:', streamUrl, 'diziID:', diziID);
-            document.getElementById("playerpanel").style.display = "flex";
-            document.getElementById("bolumler").classList.add("hidden");
-
-            currentScreen = 'player';
-            history.pushState({ page: 'player', diziID: diziID, streamUrl: streamUrl }, '', `#player-${diziID}`);
-
-            if (jwPlayerInstance) {
-                jwPlayerInstance.remove();
-                jwPlayerInstance = null;
-            }
-
-            document.getElementById("main-player").innerHTML = "";
-            document.getElementById("main-player").innerHTML = '<div id="jw-player"></div>';
-            jwPlayerInstance = jwplayer("jw-player").setup({
-                file: streamUrl,
-                title: diziler[diziID].bolumler.find(b => b.link === streamUrl).ad,
-                image: diziler[diziID].resim,
-                width: "100%",
-                height: "100%",
-                primary: "html5",
-                autostart: true,
-                playbackRateControls: [0.5, 1, 1.5, 2]
-            });
-        }
-
-        function geriPlayer() {
-            console.log('geriPlayer called');
-            document.getElementById("playerpanel").style.display = "none";
-            document.getElementById("bolumler").classList.remove("hidden");
-
-            currentScreen = 'bolumler';
-            var currentDiziID = sessionStorage.getItem('currentDiziID');
-            history.replaceState({ page: 'bolumler', diziID: currentDiziID }, '', `#bolumler-${currentDiziID}`);
-
-            if (jwPlayerInstance) {
-                jwPlayerInstance.remove();
-                jwPlayerInstance = null;
-            }
-        }
-
-        function geriDon() {
-            console.log('geriDon called');
-            sessionStorage.removeItem('currentDiziID');
-            document.querySelector(".filmpaneldis").classList.remove("hidden");
-            document.getElementById("bolumler").classList.add("hidden");
-            document.getElementById("geriBtn").style.display = "none";
-            
-            currentScreen = 'anaSayfa';
-            history.replaceState({ page: 'anaSayfa' }, '', '#anaSayfa');
-        }
-
-        window.addEventListener('popstate', function(event) {
-            console.log('popstate event:', event.state);
-            var currentDiziID = sessionStorage.getItem('currentDiziID');
-            
-            if (event.state && event.state.page === 'player' && event.state.diziID && event.state.streamUrl) {
-                showBolumler(event.state.diziID);
-                showPlayer(event.state.streamUrl, event.state.diziID);
-            } else if (event.state && event.state.page === 'bolumler' && event.state.diziID) {
-                showBolumler(event.state.diziID);
-            } else {
-                sessionStorage.removeItem('currentDiziID');
-                document.querySelector(".filmpaneldis").classList.remove("hidden");
-                document.getElementById("bolumler").classList.add("hidden");
-                document.getElementById("playerpanel").style.display = "none";
-                document.getElementById("geriBtn").style.display = "none";
-                currentScreen = 'anaSayfa';
-                history.replaceState({ page: 'anaSayfa' }, '', '#anaSayfa');
-
-                if (jwPlayerInstance) {
-                    jwPlayerInstance.remove();
-                    jwPlayerInstance = null;
-                }
-            }
-        });
-
-        function checkInitialState() {
-            console.log('checkInitialState called');
-            var currentDiziID = sessionStorage.getItem('currentDiziID');
-            if (currentDiziID) {
-                showBolumler(currentDiziID);
-            } else {
-                currentScreen = 'anaSayfa';
-                document.querySelector(".filmpaneldis").classList.remove("hidden");
-                document.getElementById("bolumler").classList.add("hidden");
-                document.getElementById("playerpanel").style.display = "none";
-                document.getElementById("geriBtn").style.display = "none";
-                history.replaceState({ page: 'anaSayfa' }, '', '#anaSayfa');
-            }
-        }
-
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM fully loaded');
-            console.log('diziler keys:', Object.keys(diziler));
-            checkInitialState();
-        });
-
-        function searchSeries() {
-            console.log('searchSeries called');
-            var query = document.getElementById('seriesSearch').value.toLowerCase();
-            var series = document.querySelectorAll('.filmpanel');
-
-            series.forEach(function(serie) {
-                var title = serie.querySelector('.filmisim').textContent.toLowerCase();
-                if (title.includes(query)) {
-                    serie.style.display = "block";
-                } else {
-                    serie.style.display = "none";
-                }
-            });
-            return false;
-        }
-
-        function resetSeriesSearch() {
-            console.log('resetSeriesSearch called');
-            var query = document.getElementById('seriesSearch').value.toLowerCase();
-            if (query === "") {
-                var series = document.querySelectorAll('.filmpanel');
-                series.forEach(function(serie) {
-                    serie.style.display = "block";
-                });
-            }
-        }
-    </script>
-</body>
-</html>
-'''
-
-    # Generate dynamic HTML content
-    series_panels = ""
-    diziler_js = ""
-    for index, series in enumerate(data, start=1):
-        # Escape special characters in series name and image URL
-        series_name = series['name'].replace('"', '\\"').replace('\n', ' ')
-        series_img = series['img'].replace('"', '\\"')
-        
-        # Generate series panels with inline onclick
-        series_panels += '''
-        <div class="filmpanel" onclick="showBolumler(\'{}\')">
-            <div class="filmresim"><img src="{}"></div>
+    # Dizi HTML içeriğini oluştur
+    series_html = ""
+    for idx, series in enumerate(data, 1):
+        series_html += f"""
+        <div class="filmpanel" onclick="showBolumler('{idx}')">
+            <div class="filmresim"><img src="{series['img']}"></div>
             <div class="filmisimpanel">
-                <div class="filmisim">{}</div>
+                <div class="filmisim">{series['name']}</div>
             </div>
         </div>
-        '''.format(index, series_img, series_name)
+        """
 
-        # Generate JavaScript diziler object
-        episodes_js = ""
-        for ep_index, ep in enumerate(series['episodes']):
-            # Escape special characters in episode name and stream URL
-            ep_name = ep['full_name'].replace('"', '\\"').replace('\n', ' ')
-            ep_stream = ep['stream_url'].replace('"', '\\"')
-            episodes_js += '{{"ad": "{}", "link": "{}"}}'.format(ep_name, ep_stream)
-            if ep_index < len(series['episodes']) - 1:
-                episodes_js += ","
-        diziler_js += '''
-            "{}": {{
-                "resim": "{}",
-                "bolumler": [{}]
-            }}'''.format(index, series_img, episodes_js)
-        if index < len(data):
-            diziler_js += ","
+    # JSON verisini oluştur
+    json_data = {}
+    for idx, series in enumerate(data, 1):
+        json_data[str(idx)] = {
+            "resim": series["img"],
+            "bolumler": [
+                {"ad": ep["full_name"], "link": ep["stream_url"]}
+                for ep in series["episodes"]
+            ]
+        }
+    json_data_str = json.dumps(json_data, ensure_ascii=False)
 
-    # Replace placeholders in the template
-    html_content = html_template.replace('{SERIES_PANELS}', series_panels)
-    html_content = html_content.replace('{DIZILER_JS}', diziler_js)
-
-    # Write to HTML file
+    # HTML dosyasını oluştur
     with open(html_file, "w", encoding="utf-8") as f:
-        f.write(html_content)
+        f.write(html_template.format(css_styles=css_styles, series_html=series_html, json_data=json_data_str))
     print(f"{html_file} başarıyla oluşturuldu!")
-    if os.path.exists(html_file):
-        print(f"Dosya boyutu: {os.path.getsize(html_file)} bytes")
-    else:
-        print("Dosya oluşmadı!")
-
-def create_yaml_file(data):
-    if os.path.exists(yml_file):
-        print(f"{yml_file} zaten mevcut, oluşturulmadı.")
-        return
-    with open(yml_file, "w", encoding="utf-8") as f:
-        yaml.dump(data, f, allow_unicode=True)
-    print(f"{yml_file} başarıyla oluşturuldu!")
 
 def main():
     data = get_all_content()
-    if not data:
-        print("Hata: Veri çekilemedi!")
-        return
-    print(f"Toplam {len(data)} dizi çekildi.")
-    create_html_file(data)
-    create_yaml_file(data)
+    create_json_file(data)  # JSON dosyasını oluştur
+    create_html_file(data)  # HTML dosyasını oluştur
 
 if __name__ == "__main__":
     main()
