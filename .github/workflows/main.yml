@@ -28,7 +28,7 @@ jobs:
 
     - name: Run PuhuTV Scraper
       run: |
-        python puhutv_scraper.py
+        python puhutv.py
 
     - name: Commit and push if changes
       run: |
