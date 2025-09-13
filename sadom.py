@@ -25,54 +25,69 @@ CHANNELS = [
     {"id": "eurosport2", "source_id": "selcukeurosport2", "name": "Eurosport 2", "logo": "https://feo.kablowebtv.com/resize/168A635D265A4328C2883FB4CD8FF/0/0/Vod/HLS/a4cbdd15-1509-408f-a108-65b8f88f2066.png", "group": "Spor"},
 ]
 
-def find_working_domain(start=6, end=100):
-    print("sporcafe domainleri taranıyor")
-    for i in range(start, end + 1):
-        url = f"https://www.sporcafe{i}.xyz/"
-        try:
-            res = requests.get(url, headers=HEADERS, timeout=5)
-            if res.status_code == 200 and "uxsyplayer" in res.text:
-                print(f"Aktif domain: {url}")
-                return res.text, url
-        except:
-            continue
-    print("Aktif domain bulunamadı.")
-    return None, None
+def get_active_site():
+    entry_url = "https://www.selcuksportshd78.is/"
+    try:
+        entry_source = requests.get(entry_url, headers=HEADERS, timeout=5).text
+        match = re.search(r'url=(https:\/\/[^"]+)', entry_source)
+        if match:
+            print(f"Aktif site: {match.group(1)}")
+            return match.group(1)
+        else:
+            print("Aktif site bulunamadı.")
+            return None
+    except:
+        print("Giriş URL'sine erişilemedi.")
+        return None
 
-def find_stream_domain(html):
-    match = re.search(r'https?://(main\.uxsyplayer[0-9a-zA-Z\-]+\.click)', html)
-    return f"https://{match.group(1)}" if match else None
+def get_base_url(active_site):
+    try:
+        source = requests.get(active_site, headers=HEADERS, timeout=5).text
+        match = re.search(r'https:\/\/[^"]+\/index\.php\?id=selcukbeinsports1', source)
+        if match:
+            base_url = match.group(0).replace("selcukbeinsports1", "")
+            print(f"Base URL: {base_url}")
+            return base_url
+        else:
+            print("Base URL bulunamadı.")
+            return None
+    except:
+        print("Aktif siteye erişilemedi.")
+        return None
 
-def extract_base_url(html):
-    match = re.search(r'this\.adsBaseUrl\s*=\s*[\'"]([^\'"]+)', html)
-    return match.group(1) if match else None
-
-def fetch_streams(domain, referer):
+def fetch_streams(base_url):
     result = []
     for ch in CHANNELS:
-        full_url = f"{domain}/index.php?id={ch['source_id']}"
+        url = f"{base_url}{ch['source_id']}"
         try:
-            r = requests.get(full_url, headers={**HEADERS, "Referer": referer}, timeout=5)
-            if r.status_code == 200:
-                base = extract_base_url(r.text)
-                if base:
-                    stream = f"{base}{ch['source_id']}/playlist.m3u8"
-                    print(f"{ch['name']} → {stream}")
-                    result.append((ch, stream))
+            source = requests.get(url, headers=HEADERS, timeout=5).text
+            match = re.search(r'(https:\/\/[^\'"]+\/live\/[^\'"]+\/playlist\.m3u8)', source)
+            if match:
+                stream_url = match.group(1)
+            else:
+                match = re.search(r'(https:\/\/[^\'"]+\/live\/)', source)
+                if match:
+                    stream_url = f"{match.group(1)}{ch['source_id']}/playlist.m3u8"
+                else:
+                    continue
+            stream_url = re.sub(r'[\'";].*$', '', stream_url).strip()
+            if stream_url and re.match(r'^https?://', stream_url):
+                print(f"{ch['name']} → {stream_url}")
+                result.append((ch, stream_url))
         except:
-            pass
+            continue
     return result
 
 def generate_html(streams, filename="sadom.html"):
     print(f"\nHTML dosyası yazılıyor: {filename}")
     
-    # HTML şablonunun başlangıcı
     html_template = """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TITAN TV</title>
+    <script src="https://cdn.jsdelivr.net/npm/clappr@latest/dist/clappr.min.js"></script>
     <style>
         *:not(input):not(textarea) {
             -moz-user-select: -moz-none;
@@ -199,21 +214,20 @@ def generate_html(streams, filename="sadom.html"):
     <div class="channel-list">
 """
 
-    # Kanal listesini ekle
     for ch, url in streams:
         html_template += f"""        <div class='channel-item' data-channel='{ch["name"]}' data-href='{url}'>
             <a><img src='{ch["logo"]}' alt='Logo'><span>{ch["name"]}</span></a>
         </div>
 """
 
-    # HTML şablonunun sonu
     html_template += """    </div>
 
     <div id="player-container">
-        <iframe id="player" frameborder="0" allowfullscreen></iframe>
+        <div id="player"></div>
     </div>
 
     <script>
+        let player = null;
         document.querySelectorAll('.channel-item').forEach(item => {
             item.addEventListener('click', function() {
                 const channelName = this.getAttribute('data-channel');
@@ -222,15 +236,27 @@ def generate_html(streams, filename="sadom.html"):
                 document.querySelector('.subtitle').textContent = channelName;
                 document.getElementById('player-container').style.display = 'block';
                 
-                const playerIframe = document.getElementById('player');
-                playerIframe.src = `https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=${encodeURIComponent(channelUrl)}`;
+                if (player) {
+                    player.destroy();
+                }
+                
+                player = new Clappr.Player({
+                    source: channelUrl,
+                    parentId: '#player',
+                    autoPlay: false,
+                    mute: false,
+                    height: '100%',
+                    width: '100%'
+                });
             });
         });
 
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
-                const playerIframe = document.getElementById('player');
-                playerIframe.src = '';
+                if (player) {
+                    player.destroy();
+                    player = null;
+                }
                 document.getElementById('player-container').style.display = 'none';
                 document.querySelector('.subtitle').textContent = '';
             }
@@ -239,21 +265,18 @@ def generate_html(streams, filename="sadom.html"):
 </body>
 </html>"""
 
-    # HTML dosyasını yaz
     with open(filename, "w", encoding="utf-8") as f:
         f.write(html_template)
     print("Tamamlandı. Kanal sayısı:", len(streams))
 
 def main():
-    html, referer = find_working_domain()
-    if not html:
+    active_site = get_active_site()
+    if not active_site:
         return
-    stream_domain = find_stream_domain(html)
-    if not stream_domain:
-        print("Yayın domaini bulunamadı.")
+    base_url = get_base_url(active_site)
+    if not base_url:
         return
-    print(f"Yayın domaini: {stream_domain}")
-    streams = fetch_streams(stream_domain, referer)
+    streams = fetch_streams(base_url)
     if streams:
         generate_html(streams)
     else:
