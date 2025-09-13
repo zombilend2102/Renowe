@@ -144,7 +144,7 @@ def save_html_file(data):
             -webkit-user-select: none;
             -o-user-select: none;
             -ms-user-select: none;
-            user-select: none
+            user-select: none;
         }
         body {
             margin: 0;
@@ -216,13 +216,55 @@ def save_html_file(data):
         .bolum-container { background: #15161a; padding: 10px; margin-top: 10px; border-radius: 5px; }
         .geri-btn { background: #572aa7; color: white; padding: 10px; text-align: center; border-radius: 5px; cursor: pointer; margin-top: 10px; margin-bottom: 10px; display: none; width: 100px; }
         .geri-btn:hover { background: #6b3ec7; transition: background 0.3s; }
-        .playerpanel { width: 100%; height: 100vh; position: fixed; top: 0; left: 0; background: #0a0e17; z-index: 9999; display: none; flex-direction: column; overflow: hidden; }
-        #main-player { width: 100%; height: 100%; background: #000; }
-        .player-geri-btn { background: #572aa7; color: white; padding: 10px; text-align: center; border-radius: 5px; cursor: pointer; margin: 10px; width: 100px; align-self: flex-start; }
-        .player-geri-btn:hover { background: #6b3ec7; transition: background 0.3s; }
+        .playerpanel {
+            width: 100vw;
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            background: #000;
+            z-index: 9999;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+        }
+        .player-geri-btn {
+            background: #572aa7;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+            width: 100px;
+            z-index: 10000;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        .player-geri-btn:hover {
+            background: #6b3ec7;
+            transition: background 0.3s;
+        }
+        #main-player {
+            width: 100%;
+            height: 100%;
+            background: #000;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        #jw-player {
+            width: 100% !important;
+            height: 100% !important;
+        }
         @media(max-width:900px) {
             .filmpanel { width: 17%; height: 220px; margin: 1.5%; }
             .slider-container .slider-slide { flex-basis: 20%; }
+            .playerpanel { width: 100vw; height: 100vh; }
+            #main-player { width: 100%; height: 100%; }
         }
         @media(max-width:550px) {
             .filmisimpanel { height: 190px; margin-top: -190px; }
@@ -232,8 +274,9 @@ def save_html_file(data):
             .filmbasliklarsag { float: left; width: 100%; margin-top: 20px; margin-left: 0px; }
             .ozetpanel { float: left; width: 48%; height: 230px; }
             .slider-container .slider-slide { flex-basis: 33.33%; }
-            .playerpanel { height: 100vh; }
-            #main-player { height: calc(100% - 60px); }
+            .playerpanel { width: 100vw; height: 100vh; }
+            #main-player { width: 100%; height: 100%; }
+            .player-geri-btn { width: 80px; padding: 8px; font-size: 14px; }
         }
     """
 
@@ -251,155 +294,166 @@ def save_html_file(data):
     json_data = create_json_data(data)
     json_data_str = json.dumps(json_data, ensure_ascii=False)
 
-    js_template = f"""jwplayer.key = "cLGMn8T20tGvW+0eXPhq4NNmLB57TrscPjd1IyJF84o=";
-var diziler = {json_data_str};
-let currentScreen = 'anaSayfa';
-let jwPlayerInstance = null;
+    js_template = f"""
+        jwplayer.key = "cLGMn8T20tGvW+0eXPhq4NNmLB57TrscPjd1IyJF84o=";
+        var diziler = {json_data_str};
+        let currentScreen = 'anaSayfa';
+        let jwPlayerInstance = null;
 
-function showBolumler(diziID) {{
-    sessionStorage.setItem('currentDiziID', diziID);
-    var listContainer = document.getElementById("bolumListesi");
-    listContainer.innerHTML = "";
-    
-    if (diziler[diziID]) {{
-        diziler[diziID].bolumler.forEach(function(bolum) {{
-            var item = document.createElement("div");
-            item.className = "filmpanel";
-            item.innerHTML = `
-                <div class="filmresim"><img src="${{diziler[diziID].resim}}"></div>
-                <div class="filmisimpanel">
-                    <div class="filmisim">${{bolum.ad}}</div>
-                </div>
-            `;
-            item.onclick = function() {{
-                showPlayer(bolum.link, diziID);
-            }};
-            listContainer.appendChild(item);
-        }});
-    }} else {{
-        listContainer.innerHTML = "<p>Bu dizi için bölüm bulunamadı.</p>";
-    }}
-    
-    document.querySelector(".filmpaneldis").classList.add("hidden");
-    document.getElementById("bolumler").classList.remove("hidden");
-    document.getElementById("geriBtn").style.display = "block";
-    currentScreen = 'bolumler';
-    history.replaceState({{ page: 'bolumler', diziID: diziID }}, '', `#bolumler-${{diziID}}`);
-}}
-
-function showPlayer(streamUrl, diziID) {{
-    document.getElementById("playerpanel").style.display = "flex";
-    document.getElementById("bolumler").classList.add("hidden");
-    currentScreen = 'player';
-    history.pushState({{ page: 'player', diziID: diziID, streamUrl: streamUrl }}, '', `#player-${{diziID}}`);
-    if (jwPlayerInstance) {{
-        jwPlayerInstance.remove();
-        jwPlayerInstance = null;
-    }}
-    document.getElementById("main-player").innerHTML = "";
-    document.getElementById("main-player").innerHTML = '<div id="jw-player"></div>';
-    jwPlayerInstance = jwplayer("jw-player").setup({{
-        file: streamUrl,
-        title: diziler[diziID].bolumler.find(b => b.link === streamUrl).ad,
-        image: diziler[diziID].resim,
-        width: "100%",
-        height: "100%",
-        primary: "html5",
-        autostart: true,
-        playbackRateControls: [0.5, 1, 1.5, 2]
-    }});
-}}
-
-function geriPlayer() {{
-    document.getElementById("playerpanel").style.display = "none";
-    document.getElementById("bolumler").classList.remove("hidden");
-    currentScreen = 'bolumler';
-    var currentDiziID = sessionStorage.getItem('currentDiziID');
-    history.replaceState({{ page: 'bolumler', diziID: currentDiziID }}, '', `#bolumler-${{currentDiziID}}`);
-    if (jwPlayerInstance) {{
-        jwPlayerInstance.remove();
-        jwPlayerInstance = null;
-    }}
-}}
-
-function geriDon() {{
-    sessionStorage.removeItem('currentDiziID');
-    document.querySelector(".filmpaneldis").classList.remove("hidden");
-    document.getElementById("bolumler").classList.add("hidden");
-    document.getElementById("geriBtn").style.display = "none";
-    currentScreen = 'anaSayfa';
-    history.replaceState({{ page: 'anaSayfa' }}, '', '#anaSayfa');
-}}
-
-window.addEventListener('popstate', function(event) {{
-    var currentDiziID = sessionStorage.getItem('currentDiziID');
-    if (event.state && event.state.page === 'player' && event.state.diziID && event.state.streamUrl) {{
-        showBolumler(event.state.diziID);
-        showPlayer(event.state.streamUrl, event.state.diziID);
-    }} else if (event.state && event.state.page === 'bolumler' && event.state.diziID) {{
-        showBolumler(event.state.diziID);
-    }} else {{
-        sessionStorage.removeItem('currentDiziID');
-        document.querySelector(".filmpaneldis").classList.remove("hidden");
-        document.getElementById("bolumler").classList.add("hidden");
-        document.getElementById("playerpanel").style.display = "none";
-        document.getElementById("geriBtn").style.display = "none";
-        currentScreen = 'anaSayfa';
-        history.replaceState({{ page: 'anaSayfa' }}, '', '#anaSayfa');
-        if (jwPlayerInstance) {{
-            jwPlayerInstance.remove();
-            jwPlayerInstance = null;
+        function showBolumler(diziID) {{
+            sessionStorage.setItem('currentDiziID', diziID);
+            var listContainer = document.getElementById("bolumListesi");
+            listContainer.innerHTML = "";
+            
+            if (diziler[diziID]) {{
+                diziler[diziID].bolumler.forEach(function(bolum) {{
+                    var item = document.createElement("div");
+                    item.className = "filmpanel";
+                    item.innerHTML = `
+                        <div class="filmresim"><img src="${{diziler[diziID].resim}}"></div>
+                        <div class="filmisimpanel">
+                            <div class="filmisim">${{bolum.ad}}</div>
+                        </div>
+                    `;
+                    item.onclick = function() {{
+                        showPlayer(bolum.link, diziID);
+                    }};
+                    listContainer.appendChild(item);
+                }});
+            }} else {{
+                listContainer.innerHTML = "<p>Bu dizi için bölüm bulunamadı.</p>";
+            }}
+            
+            document.querySelector(".filmpaneldis").classList.add("hidden");
+            document.getElementById("bolumler").classList.remove("hidden");
+            document.getElementById("geriBtn").style.display = "block";
+            currentScreen = 'bolumler';
+            history.replaceState({{ page: 'bolumler', diziID: diziID }}, '', `#bolumler-${{diziID}}`);
         }}
-    }}
-}});
 
-function checkInitialState() {{
-    var currentDiziID = sessionStorage.getItem('currentDiziID');
-    if (currentDiziID) {{
-        showBolumler(currentDiziID);
-    }} else {{
-        currentScreen = 'anaSayfa';
-        document.querySelector(".filmpaneldis").classList.remove("hidden");
-        document.getElementById("bolumler").classList.add("hidden");
-        document.getElementById("playerpanel").style.display = "none";
-        document.getElementById("geriBtn").style.display = "none";
-        history.replaceState({{ page: 'anaSayfa' }}, '', '#anaSayfa');
-    }}
-}}
-
-document.addEventListener('DOMContentLoaded', checkInitialState);
-
-function searchSeries() {{
-    var query = document.getElementById('seriesSearch').value.toLowerCase();
-    var series = document.querySelectorAll('.filmpanel');
-    series.forEach(function(serie) {{
-        var title = serie.querySelector('.filmisim').textContent.toLowerCase();
-        if (title.includes(query)) {{
-            serie.style.display = "block";
-        }} else {{
-            serie.style.display = "none";
+        function showPlayer(streamUrl, diziID) {{
+            document.getElementById("playerpanel").style.display = "flex";
+            document.getElementById("bolumler").classList.add("hidden");
+            currentScreen = 'player';
+            history.pushState({{ page: 'player', diziID: diziID, streamUrl: streamUrl }}, '', `#player-${{diziID}}`);
+            if (jwPlayerInstance) {{
+                jwPlayerInstance.remove();
+                jwPlayerInstance = null;
+            }}
+            document.getElementById("main-player").innerHTML = "";
+            document.getElementById("main-player").innerHTML = '<div id="jw-player"></div>';
+            jwPlayerInstance = jwplayer("jw-player").setup({{
+                file: streamUrl,
+                title: diziler[diziID].bolumler.find(b => b.link === streamUrl).ad,
+                image: diziler[diziID].resim,
+                width: "100%",
+                height: "100%",
+                aspectratio: "16:9",
+                primary: "html5",
+                autostart: true,
+                playbackRateControls: [0.5, 1, 1.5, 2],
+                displaytitle: true,
+                controls: true,
+                stretching: "uniform"
+            }});
+            // Tam ekran butonunu aktif et
+            jwPlayerInstance.on('ready', function() {{
+                const playerContainer = document.getElementById("jw-player");
+                playerContainer.style.width = "100vw";
+                playerContainer.style.height = "100vh";
+            }});
         }}
-    }});
-    return false;
-}}
 
-function resetSeriesSearch() {{
-    var query = document.getElementById('seriesSearch').value.toLowerCase();
-    if (query === "") {{
-        var series = document.querySelectorAll('.filmpanel');
-        series.forEach(function(serie) {{
-            serie.style.display = "block";
+        function geriPlayer() {{
+            document.getElementById("playerpanel").style.display = "none";
+            document.getElementById("bolumler").classList.remove("hidden");
+            currentScreen = 'bolumler';
+            var currentDiziID = sessionStorage.getItem('currentDiziID');
+            history.replaceState({{ page: 'bolumler', diziID: currentDiziID }}, '', `#bolumler-${{currentDiziID}}`);
+            if (jwPlayerInstance) {{
+                jwPlayerInstance.remove();
+                jwPlayerInstance = null;
+            }}
+        }}
+
+        function geriDon() {{
+            sessionStorage.removeItem('currentDiziID');
+            document.querySelector(".filmpaneldis").classList.remove("hidden");
+            document.getElementById("bolumler").classList.add("hidden");
+            document.getElementById("geriBtn").style.display = "none";
+            currentScreen = 'anaSayfa';
+            history.replaceState({{ page: 'anaSayfa' }}, '', '#anaSayfa');
+        }}
+
+        window.addEventListener('popstate', function(event) {{
+            var currentDiziID = sessionStorage.getItem('currentDiziID');
+            if (event.state && event.state.page === 'player' && event.state.diziID && event.state.streamUrl) {{
+                showBolumler(event.state.diziID);
+                showPlayer(event.state.streamUrl, event.state.diziID);
+            }} else if (event.state && event.state.page === 'bolumler' && event.state.diziID) {{
+                showBolumler(event.state.diziID);
+            }} else {{
+                sessionStorage.removeItem('currentDiziID');
+                document.querySelector(".filmpaneldis").classList.remove("hidden");
+                document.getElementById("bolumler").classList.add("hidden");
+                document.getElementById("playerpanel").style.display = "none";
+                document.getElementById("geriBtn").style.display = "none";
+                currentScreen = 'anaSayfa';
+                history.replaceState({{ page: 'anaSayfa' }}, '', '#anaSayfa');
+                if (jwPlayerInstance) {{
+                    jwPlayerInstance.remove();
+                    jwPlayerInstance = null;
+                }}
+            }}
         }});
-    }}
-}}
-"""
+
+        function checkInitialState() {{
+            var currentDiziID = sessionStorage.getItem('currentDiziID');
+            if (currentDiziID) {{
+                showBolumler(currentDiziID);
+            }} else {{
+                currentScreen = 'anaSayfa';
+                document.querySelector(".filmpaneldis").classList.remove("hidden");
+                document.getElementById("bolumler").classList.add("hidden");
+                document.getElementById("playerpanel").style.display = "none";
+                document.getElementById("geriBtn").style.display = "none";
+                history.replaceState({{ page: 'anaSayfa' }}, '', '#anaSayfa');
+            }}
+        }}
+
+        document.addEventListener('DOMContentLoaded', checkInitialState);
+
+        function searchSeries() {{
+            var query = document.getElementById('seriesSearch').value.toLowerCase();
+            var series = document.querySelectorAll('.filmpanel');
+            series.forEach(function(serie) {{
+                var title = serie.querySelector('.filmisim').textContent.toLowerCase();
+                if (title.includes(query)) {{
+                    serie.style.display = "block";
+                }} else {{
+                    serie.style.display = "none";
+                }}
+            }});
+            return false;
+        }}
+
+        function resetSeriesSearch() {{
+            var query = document.getElementById('seriesSearch').value.toLowerCase();
+            if (query === "") {{
+                var series = document.querySelectorAll('.filmpanel');
+                series.forEach(function(serie) {{
+                    serie.style.display = "block";
+                }});
+            }}
+        }}
+    """
 
     html_template = f"""<!DOCTYPE html>
 <html lang="tr">
 <head>
     <title>TITAN TV YERLİ VOD</title>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link href="https://fonts.googleapis.com/css?family=PT+Sans:700i" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script src="https://kit.fontawesome.com/bbe955c5ed.js" crossorigin="anonymous"></script>
