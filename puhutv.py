@@ -1,4 +1,3 @@
-
 import requests
 from tqdm import tqdm
 from bs4 import BeautifulSoup
@@ -240,6 +239,7 @@ def create_html_file(data):
             padding: 0px;
             overflow: hidden;
             transition: border 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
         }
         .filmisimpanel {
             width: 100%;
@@ -626,12 +626,15 @@ def create_html_file(data):
         let jwPlayerInstance = null;
 
         function showBolumler(diziID) {
+            console.log('showBolumler called with diziID:', diziID); // Debugging
+            console.log('diziler object:', diziler); // Debugging
             sessionStorage.setItem('currentDiziID', diziID);
             var listContainer = document.getElementById("bolumListesi");
             listContainer.innerHTML = "";
             
             if (diziler[diziID]) {
-                diziler[diziID].bolumler.forEach(function(bolum) {
+                console.log('Found diziler for ID:', diziID, diziler[diziID]); // Debugging
+                diziler[diziID].bolumler.forEach(function(bolum, index) {
                     var item = document.createElement("div");
                     item.className = "filmpanel";
                     item.innerHTML = `
@@ -641,11 +644,13 @@ def create_html_file(data):
                         </div>
                     `;
                     item.onclick = function() {
+                        console.log('Episode clicked:', bolum.ad, bolum.link); // Debugging
                         showPlayer(bolum.link, diziID);
                     };
                     listContainer.appendChild(item);
                 });
             } else {
+                console.log('No episodes found for diziID:', diziID); // Debugging
                 listContainer.innerHTML = "<p>Bu dizi için bölüm bulunamadı.</p>";
             }
             
@@ -658,6 +663,7 @@ def create_html_file(data):
         }
 
         function showPlayer(streamUrl, diziID) {
+            console.log('showPlayer called with streamUrl:', streamUrl, 'diziID:', diziID); // Debugging
             document.getElementById("playerpanel").style.display = "flex";
             document.getElementById("bolumler").classList.add("hidden");
 
@@ -670,7 +676,6 @@ def create_html_file(data):
             }
 
             document.getElementById("main-player").innerHTML = "";
-
             document.getElementById("main-player").innerHTML = '<div id="jw-player"></div>';
             jwPlayerInstance = jwplayer("jw-player").setup({
                 file: streamUrl,
@@ -685,6 +690,7 @@ def create_html_file(data):
         }
 
         function geriPlayer() {
+            console.log('geriPlayer called'); // Debugging
             document.getElementById("playerpanel").style.display = "none";
             document.getElementById("bolumler").classList.remove("hidden");
 
@@ -699,6 +705,7 @@ def create_html_file(data):
         }
 
         function geriDon() {
+            console.log('geriDon called'); // Debugging
             sessionStorage.removeItem('currentDiziID');
             document.querySelector(".filmpaneldis").classList.remove("hidden");
             document.getElementById("bolumler").classList.add("hidden");
@@ -709,6 +716,7 @@ def create_html_file(data):
         }
 
         window.addEventListener('popstate', function(event) {
+            console.log('popstate event:', event.state); // Debugging
             var currentDiziID = sessionStorage.getItem('currentDiziID');
             
             if (event.state && event.state.page === 'player' && event.state.diziID && event.state.streamUrl) {
@@ -733,6 +741,7 @@ def create_html_file(data):
         });
 
         function checkInitialState() {
+            console.log('checkInitialState called'); // Debugging
             var currentDiziID = sessionStorage.getItem('currentDiziID');
             if (currentDiziID) {
                 showBolumler(currentDiziID);
@@ -746,9 +755,20 @@ def create_html_file(data):
             }
         }
 
-        document.addEventListener('DOMContentLoaded', checkInitialState);
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM fully loaded'); // Debugging
+            checkInitialState();
+            // Ensure onclick events are bound correctly
+            document.querySelectorAll('.filmpanel').forEach(function(panel, index) {
+                panel.onclick = function() {
+                    console.log('Panel clicked, diziID:', (index + 1).toString()); // Debugging
+                    showBolumler((index + 1).toString());
+                };
+            });
+        });
 
         function searchSeries() {
+            console.log('searchSeries called'); // Debugging
             var query = document.getElementById('seriesSearch').value.toLowerCase();
             var series = document.querySelectorAll('.filmpanel');
 
@@ -764,6 +784,7 @@ def create_html_file(data):
         }
 
         function resetSeriesSearch() {
+            console.log('resetSeriesSearch called'); // Debugging
             var query = document.getElementById('seriesSearch').value.toLowerCase();
             if (query === "") {
                 var series = document.querySelectorAll('.filmpanel');
@@ -782,12 +803,12 @@ def create_html_file(data):
     diziler_js = ""
     for index, series in enumerate(data, start=1):
         # Escape special characters in series name and image URL
-        series_name = series['name'].replace('"', '\\"')
+        series_name = series['name'].replace('"', '\\"').replace('\n', ' ')
         series_img = series['img'].replace('"', '\\"')
         
         # Generate series panels
         series_panels += f'''
-        <div class="filmpanel" onclick="showBolumler('{index}')">
+        <div class="filmpanel" data-dizi-id="{index}">
             <div class="filmresim"><img src="{series_img}"></div>
             <div class="filmisimpanel">
                 <div class="filmisim">{series_name}</div>
@@ -799,7 +820,7 @@ def create_html_file(data):
         episodes_js = ""
         for ep_index, ep in enumerate(series['episodes']):
             # Escape special characters in episode name and stream URL
-            ep_name = ep['full_name'].replace('"', '\\"')
+            ep_name = ep['full_name'].replace('"', '\\"').replace('\n', ' ')
             ep_stream = ep['stream_url'].replace('"', '\\"')
             episodes_js += '{{"ad": "{}", "link": "{}"}}'.format(ep_name, ep_stream)
             if ep_index < len(series['episodes']) - 1:
@@ -820,6 +841,10 @@ def create_html_file(data):
     with open(html_file, "w", encoding="utf-8") as f:
         f.write(html_content)
     print(f"{html_file} başarıyla oluşturuldu!")
+    if os.path.exists(html_file):
+        print(f"Dosya boyutu: {os.path.getsize(html_file)} bytes")
+    else:
+        print("Dosya oluşmadı!")
 
 def create_yaml_file(data):
     if os.path.exists(yml_file):
@@ -831,6 +856,9 @@ def create_yaml_file(data):
 
 def main():
     data = get_all_content()
+    if not data:
+        print("Hata: Veri çekilemedi!")
+        return
     create_html_file(data)
     create_yaml_file(data)
 
