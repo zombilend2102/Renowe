@@ -1,40 +1,38 @@
-name: PuhuTV HTML Updater
+name: Puhutv Scraper
 
 on:
-  workflow_dispatch:  # Manuel tetikleme için
+  push:
+    branches: [ main ]
   schedule:
-    - cron: '0 0 * * *'  # Her gün 00:00'da (24 saatte bir)
+    - cron: '0 0 * * *'  # Her gün gece yarısı çalıştır (opsiyonel)
+  workflow_dispatch:  # Manuel tetikleme için
 
 jobs:
-  update-puhutv:
+  scrape:
     runs-on: ubuntu-latest
     
+    # İzinler: Dosya yazma/commmit için zorunlu
+    permissions:
+      contents: write  # Commit ve push için
+    
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
-      with:
-        persist-credentials: false
-        fetch-depth: 0
+    - uses: actions/checkout@v4  # Repo'yu çek (fetch-depth: 0 ile tam history al)
 
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.9'
+        python-version: '3.x'
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install requests beautifulsoup4 tqdm pyyaml
+        pip install requests tqdm beautifulsoup4 pyyaml
 
-    - name: Run PuhuTV Scraper
-      run: |
-        python puhutv.py
+    - name: Run Puhutv script
+      run: python puhutv.py
 
-    - name: Commit and push if changes
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git add puhutv.html
-        git add puhutv.yml
-        git commit -m "Auto-update PuhuTV HTML - $(date)" || echo "No changes to commit"
-        git push origin HEAD:${{ github.ref }} || echo "Nothing to push"
+    - name: Commit and push puhutv.html
+      uses: stefanzweifel/git-auto-commit-action@v5
+      with:
+        commit_message: "Güncel puhutv.html eklendi"
+        file_pattern: puhutv.html  # Sadece bu dosyayı takip et
