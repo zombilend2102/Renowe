@@ -44,9 +44,14 @@ class Dizipall8Scraper:
                 link_element = element.select_one('a.block.no-underline')
                 movie_link = link_element['href'] if link_element and 'href' in link_element.attrs else None
                 
-                # Film posterini al
-                img_element = element.select_one('img.lazy')
-                poster_url = img_element['data-src'] if img_element and 'data-src' in img_element.attrs else None
+                # Film posterini al - SADECE .webp uzantılı gerçek afişleri al
+                img_elements = element.select('img.lazy')
+                poster_url = None
+                
+                for img in img_elements:
+                    if 'data-src' in img.attrs and '.webp' in img['data-src']:
+                        poster_url = img['data-src']
+                        break
                 
                 if title and movie_link and poster_url:
                     movies.append({
@@ -695,7 +700,7 @@ class Dizipall8Scraper:
         
         return html_output
     
-    def save_html(self, html_content, filename="output.html"):
+    def save_html(self, html_content, filename="titan_tv_filmler.html"):
         """HTML içeriğini dosyaya kaydet"""
         with open(filename, 'w', encoding='utf-8') as f:
             f.write(html_content)
