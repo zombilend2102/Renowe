@@ -9,7 +9,7 @@ on:
 jobs:
   scrape-and-commit:
     runs-on: ubuntu-latest
-    timeout-minutes: 15  # İşlem uzun sürebileceğinden timeout süresi
+    timeout-minutes: 120  # ⏰ 120 DAKİKA (2 Saat) - Public repo max: 360 dakika [citation:8]
 
     steps:
       - name: ⬇️ Repository'yi checkout et
@@ -34,7 +34,6 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          # Sadece değişiklik varsa commit et
           git add titan_tv_filmler.html palx.yml
           if ! git diff --staged --quiet; then
             git commit -m "🤖 Otomatik film güncellemesi: $(date +'%Y-%m-%d %H:%M')"
