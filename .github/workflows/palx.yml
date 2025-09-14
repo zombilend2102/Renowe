@@ -1,0 +1,44 @@
+name: 🎬 Palx Film Botu Çalıştırıcı
+run-name: ${{ github.actor }} tarafından tetiklendi 🚀
+
+on:
+  schedule:
+    - cron: '0 21 * * *'  # Her gün TSİ ile gece yarısı (UTC+3'te 21:00)
+  workflow_dispatch:  # Manuel tetiklemeye izin ver
+
+jobs:
+  scrape-and-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15  # İşlem uzun sürebileceğinden timeout süresi
+
+    steps:
+      - name: ⬇️ Repository'yi checkout et
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }} # Otomatik commit için token
+
+      - name: 🐍 Python kurulumu
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: 📦 Bağımlılıkları yükle
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests beautifulsoup4 pyyaml
+
+      - name: 🎯 Palx botunu çalıştır
+        run: python palx.py  # Betiğinizin ana dosyası
+
+      - name: 💾 Değişiklikleri kontrol et ve commit et
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          # Sadece değişiklik varsa commit et
+          git add titan_tv_filmler.html palx.yml
+          if ! git diff --staged --quiet; then
+            git commit -m "🤖 Otomatik film güncellemesi: $(date +'%Y-%m-%d %H:%M')"
+            git push
+          else
+            echo "⚠️  Hiçbir değişiklik yok, commit atlanıyor."
+          fi
