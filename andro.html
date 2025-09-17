@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -66,7 +66,6 @@
             padding: 0;
             margin: 0;
             margin-top: 76px;
-            padding-bottom: 10px;
         }
 
         .channel-item {
@@ -114,29 +113,15 @@
             z-index: 100000;
         }
 
-        #player-wrapper {
+        #player {
             width: 100%;
             height: 100%;
-            position: relative;
         }
-        
-        #theoplayer-iframe {
+
+        #player iframe {
             width: 100%;
             height: 100%;
             border: none;
-        }
-        
-        .back-button {
-            position: fixed;
-            top: 15px;
-            right: 15px;
-            z-index: 100001;
-            background-color: rgba(0, 0, 0, 0.5);
-            color: white;
-            border: none;
-            padding: 10px;
-            border-radius: 5px;
-            cursor: pointer;
         }
     </style>
 </head>
@@ -149,147 +134,140 @@
         </div>
     </div>
     <div class="channel-list">
-        <div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivebs1.m3u8', 'beIN Sport 1 HD')">
+        <div class='channel-item' data-channel='beIN Sport 1 HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivebs1.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>beIN Sport 1 HD</span></a>
 </div>
-<div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivebs2.m3u8', 'beIN Sport 2 HD')">
+<div class='channel-item' data-channel='beIN Sport 2 HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivebs2.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>beIN Sport 2 HD</span></a>
 </div>
-<div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivebs3.m3u8', 'beIN Sport 3 HD')">
+<div class='channel-item' data-channel='beIN Sport 3 HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivebs3.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>beIN Sport 3 HD</span></a>
 </div>
-<div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivebs4.m3u8', 'beIN Sport 4 HD')">
+<div class='channel-item' data-channel='beIN Sport 4 HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivebs4.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>beIN Sport 4 HD</span></a>
 </div>
-<div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivebs5.m3u8', 'beIN Sport 5 HD')">
+<div class='channel-item' data-channel='beIN Sport 5 HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivebs5.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>beIN Sport 5 HD</span></a>
 </div>
-<div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivebsm1.m3u8', 'beIN Sport Max 1 HD')">
+<div class='channel-item' data-channel='beIN Sport Max 1 HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivebsm1.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>beIN Sport Max 1 HD</span></a>
 </div>
-<div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivebsm2.m3u8', 'beIN Sport Max 2 HD')">
+<div class='channel-item' data-channel='beIN Sport Max 2 HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivebsm2.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>beIN Sport Max 2 HD</span></a>
 </div>
-<div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivess1.m3u8', 'S Sport 1 HD')">
+<div class='channel-item' data-channel='S Sport 1 HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivess1.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>S Sport 1 HD</span></a>
 </div>
-<div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivess2.m3u8', 'S Sport 2 HD')">
+<div class='channel-item' data-channel='S Sport 2 HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivess2.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>S Sport 2 HD</span></a>
 </div>
-<div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivets.m3u8', 'Tivibu Sport HD')">
+<div class='channel-item' data-channel='Tivibu Sport HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivets.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Tivibu Sport HD</span></a>
 </div>
-<div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivets1.m3u8', 'Tivibu Sport 1 HD')">
+<div class='channel-item' data-channel='Tivibu Sport 1 HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivets1.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Tivibu Sport 1 HD</span></a>
 </div>
-<div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivets2.m3u8', 'Tivibu Sport 2 HD')">
+<div class='channel-item' data-channel='Tivibu Sport 2 HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivets2.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Tivibu Sport 2 HD</span></a>
 </div>
-<div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivets3.m3u8', 'Tivibu Sport 3 HD')">
+<div class='channel-item' data-channel='Tivibu Sport 3 HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivets3.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Tivibu Sport 3 HD</span></a>
 </div>
-<div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivets4.m3u8', 'Tivibu Sport 4 HD')">
+<div class='channel-item' data-channel='Tivibu Sport 4 HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivets4.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Tivibu Sport 4 HD</span></a>
 </div>
-<div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivesm1.m3u8', 'Smart Sport 1 HD')">
+<div class='channel-item' data-channel='Smart Sport 1 HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivesm1.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Smart Sport 1 HD</span></a>
 </div>
-<div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivesm2.m3u8', 'Smart Sport 2 HD')">
+<div class='channel-item' data-channel='Smart Sport 2 HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivesm2.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Smart Sport 2 HD</span></a>
 </div>
-<div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivees1.m3u8', 'Euro Sport 1 HD')">
+<div class='channel-item' data-channel='Euro Sport 1 HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivees1.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Euro Sport 1 HD</span></a>
 </div>
-<div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivees2.m3u8', 'Euro Sport 2 HD')">
+<div class='channel-item' data-channel='Euro Sport 2 HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivees2.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Euro Sport 2 HD</span></a>
 </div>
-<div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivetb.m3u8', 'Tabii HD')">
+<div class='channel-item' data-channel='Tabii HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivetb.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Tabii HD</span></a>
 </div>
-<div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivetb1.m3u8', 'Tabii 1 HD')">
+<div class='channel-item' data-channel='Tabii 1 HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivetb1.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Tabii 1 HD</span></a>
 </div>
-<div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivetb2.m3u8', 'Tabii 2 HD')">
+<div class='channel-item' data-channel='Tabii 2 HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivetb2.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Tabii 2 HD</span></a>
 </div>
-<div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivetb3.m3u8', 'Tabii 3 HD')">
+<div class='channel-item' data-channel='Tabii 3 HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivetb3.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Tabii 3 HD</span></a>
 </div>
-<div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivetb4.m3u8', 'Tabii 4 HD')">
+<div class='channel-item' data-channel='Tabii 4 HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivetb4.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Tabii 4 HD</span></a>
 </div>
-<div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivetb5.m3u8', 'Tabii 5 HD')">
+<div class='channel-item' data-channel='Tabii 5 HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivetb5.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Tabii 5 HD</span></a>
 </div>
-<div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivetb6.m3u8', 'Tabii 6 HD')">
+<div class='channel-item' data-channel='Tabii 6 HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivetb6.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Tabii 6 HD</span></a>
 </div>
-<div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivetb7.m3u8', 'Tabii 7 HD')">
+<div class='channel-item' data-channel='Tabii 7 HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivetb7.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Tabii 7 HD</span></a>
 </div>
-<div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivetb8.m3u8', 'Tabii 8 HD')">
+<div class='channel-item' data-channel='Tabii 8 HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamlivetb8.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Tabii 8 HD</span></a>
 </div>
-<div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamliveexn.m3u8', 'Exxen HD')">
+<div class='channel-item' data-channel='Exxen HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamliveexn.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Exxen HD</span></a>
 </div>
-<div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamliveexn1.m3u8', 'Exxen 1 HD')">
+<div class='channel-item' data-channel='Exxen 1 HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamliveexn1.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Exxen 1 HD</span></a>
 </div>
-<div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamliveexn2.m3u8', 'Exxen 2 HD')">
+<div class='channel-item' data-channel='Exxen 2 HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamliveexn2.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Exxen 2 HD</span></a>
 </div>
-<div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamliveexn3.m3u8', 'Exxen 3 HD')">
+<div class='channel-item' data-channel='Exxen 3 HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamliveexn3.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Exxen 3 HD</span></a>
 </div>
-<div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamliveexn4.m3u8', 'Exxen 4 HD')">
+<div class='channel-item' data-channel='Exxen 4 HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamliveexn4.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Exxen 4 HD</span></a>
 </div>
-<div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamliveexn5.m3u8', 'Exxen 5 HD')">
+<div class='channel-item' data-channel='Exxen 5 HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamliveexn5.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Exxen 5 HD</span></a>
 </div>
-<div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamliveexn6.m3u8', 'Exxen 6 HD')">
+<div class='channel-item' data-channel='Exxen 6 HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamliveexn6.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Exxen 6 HD</span></a>
 </div>
-<div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamliveexn7.m3u8', 'Exxen 7 HD')">
+<div class='channel-item' data-channel='Exxen 7 HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamliveexn7.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Exxen 7 HD</span></a>
 </div>
-<div class='channel-item' onclick="playChannel('https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamliveexn8.m3u8', 'Exxen 8 HD')">
+<div class='channel-item' data-channel='Exxen 8 HD' data-href='https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=false&muted=false&preload=none&src=https://api.codetabs.com/v1/proxy/?quest=https://dsjsajs83.inser132021jd.workers.dev/checklist/androstreamliveexn8.m3u8'>
     <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Exxen 8 HD</span></a>
 </div>
 
     </div>
 
     <div id="player-container">
-        <div id="player-wrapper">
-            <iframe id="theoplayer-iframe" frameborder="0" allowfullscreen allow="autoplay; encrypted-media"></iframe>
-        </div>
-        <button class="back-button" onclick="closePlayer()">✖ Kapat</button>
+        <div id="player"></div>
     </div>
 
     <script>
-        function playChannel(channelUrl, channelName) {
-            document.querySelector('.subtitle').textContent = channelName;
-            document.getElementById('player-container').style.display = 'block';
-            
-            // THEOplayer iframe URL'sini oluştur
-            const encodedUrl = encodeURIComponent(channelUrl);
-            const theoUrl = `https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=true&muted=false&preload=none&src=${encodedUrl}`;
-            
-            // IFrame source'unu ayarla
-            document.getElementById('theoplayer-iframe').src = theoUrl;
-        }
-        
-        function closePlayer() {
-            // IFrame source'unu temizle (player'ı durdur)
-            document.getElementById('theoplayer-iframe').src = '';
-            document.getElementById('player-container').style.display = 'none';
-            document.querySelector('.subtitle').textContent = '';
-        }
+        document.querySelectorAll('.channel-item').forEach(item => {
+            item.addEventListener('click', function() {
+                const channelName = this.getAttribute('data-channel');
+                const channelUrl = this.getAttribute('data-href');
+                
+                document.querySelector('.subtitle').textContent = channelName;
+                document.getElementById('player-container').style.display = 'block';
+                
+                const playerDiv = document.getElementById('player');
+                playerDiv.innerHTML = `<iframe src="${channelUrl}" allow="autoplay; fullscreen"></iframe>`;
+            });
+        });
 
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
-                closePlayer();
+                document.getElementById('player').innerHTML = '';
+                document.getElementById('player-container').style.display = 'none';
+                document.querySelector('.subtitle').textContent = '';
             }
         });
     </script>
