@@ -81,7 +81,7 @@ html_template = '''<!DOCTYPE html>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TITAN TV</title>
-    <script src="https://cdn.jsdelivr.net/npm/clappr@latest/dist/clappr.min.js"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@clappr/player@latest/dist/clappr.min.js"></script>
     <style>
         *:not(input):not(textarea) {{
             -moz-user-select: -moz-none;
@@ -246,17 +246,12 @@ html_template = '''<!DOCTYPE html>
                 
                 player = new Clappr.Player({{
                     source: channelUrl,
-                    parentId: '#player',
+                    parentId: "#player",
                     autoPlay: true,
                     mute: false,
                     height: '100%',
                     width: '100%',
-                    playback: {{
-                        playInline: true,
-                    }},
-                    plugins: {{
-                        core: [Clappr.LevelSelector]
-                    }}
+                    poster: 'https://i.hizliresim.com/t75soiq.png'
                 }});
             }});
         }});
