@@ -1,6 +1,7 @@
 import requests
 import re
 import os
+import urllib.parse
 
 # Proxy prefix
 PROXY = "https://api.codetabs.com/v1/proxy/?quest="
@@ -74,15 +75,13 @@ channels = [
     ("Exxen 8 HD","androstreamliveexn8","https://i.hizliresim.com/t75soiq.png"),
 ]
 
-# HTML şablonu
+# HTML şablonu - THEOplayer iframe ile
 html_template = '''<!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TITAN TV</title>
-    <script src='https://cdn.myth.theoplayer.com/7df9b5d2-4bb0-4f44-8c8a-99d5592727f7/theoplayer.js'></script>
-    <link rel='stylesheet' href='https://cdn.myth.theoplayer.com/7df9b5d2-4bb0-4f44-8c8a-99d5592727f7/theoplayer.css' />
     <style>
         *:not(input):not(textarea) {{
             -moz-user-select: -moz-none;
@@ -199,9 +198,10 @@ html_template = '''<!DOCTYPE html>
             position: relative;
         }}
         
-        .theoplayer-container {{
+        #theoplayer-iframe {{
             width: 100%;
             height: 100%;
+            border: none;
         }}
         
         .back-button {{
@@ -215,7 +215,6 @@ html_template = '''<!DOCTYPE html>
             padding: 10px;
             border-radius: 5px;
             cursor: pointer;
-            display: none;
         }}
     </style>
 </head>
@@ -233,79 +232,29 @@ html_template = '''<!DOCTYPE html>
 
     <div id="player-container">
         <div id="player-wrapper">
-            <div id="theoplayer-container" class="theoplayer-container"></div>
+            <iframe id="theoplayer-iframe" frameborder="0" allowfullscreen allow="autoplay; encrypted-media"></iframe>
         </div>
         <button class="back-button" onclick="closePlayer()">✖ Kapat</button>
     </div>
 
     <script>
-        let player = null;
-        let currentSource = '';
+        function playChannel(channelUrl, channelName) {{
+            document.querySelector('.subtitle').textContent = channelName;
+            document.getElementById('player-container').style.display = 'block';
+            
+            // THEOplayer iframe URL'sini oluştur
+            const encodedUrl = encodeURIComponent(channelUrl);
+            const theoUrl = `https://cdn.theoplayer.com/demos/iframe/theoplayer.html?autoplay=true&muted=false&preload=none&src=${{encodedUrl}}`;
+            
+            // IFrame source'unu ayarla
+            document.getElementById('theoplayer-iframe').src = theoUrl;
+        }}
         
-        document.querySelectorAll('.channel-item').forEach(item => {{
-            item.addEventListener('click', function() {{
-                const channelName = this.getAttribute('data-channel');
-                const channelUrl = this.getAttribute('data-href');
-                
-                document.querySelector('.subtitle').textContent = channelName;
-                document.getElementById('player-container').style.display = 'block';
-                document.querySelector('.back-button').style.display = 'block';
-                
-                // Eğer aynı kaynak zaten yüklenmişse, sadece oynat
-                if (currentSource === channelUrl && player) {{
-                    player.play();
-                    return;
-                }}
-                
-                currentSource = channelUrl;
-                
-                // Eski player'ı temizle
-                if (player) {{
-                    player.destroy();
-                    player = null;
-                }}
-                
-                // Yeni player oluştur
-                const container = document.getElementById('theoplayer-container');
-                container.innerHTML = '';
-                
-                player = new THEOplayer.Player(container, {{
-                    libraryLocation: 'https://cdn.myth.theoplayer.com/7df9b5d2-4bb0-4f44-8c8a-99d5592727f7/',
-                    license: 'your_license_key_here', // THEOplayer lisans anahtarınızı buraya ekleyin
-                    ui: {{
-                        width: '100%',
-                        height: '100%'
-                    }}
-                }});
-                
-                // Kaynağı yükle ve oynat
-                player.source = {{
-                    sources: [{{
-                        src: channelUrl,
-                        type: 'application/x-mpegurl'
-                    }}]
-                }};
-                
-                player.autoplay = true;
-                
-                // Hata yönetimi
-                player.addEventListener('error', function(event) {{
-                    console.error('Player error:', event);
-                    alert('Video yüklenirken bir hata oluştu: ' + event.error);
-                }});
-            }});
-        }});
-
         function closePlayer() {{
-            if (player) {{
-                player.pause();
-                player.destroy();
-                player = null;
-            }}
+            // IFrame source'unu temizle (player'ı durdur)
+            document.getElementById('theoplayer-iframe').src = '';
             document.getElementById('player-container').style.display = 'none';
             document.querySelector('.subtitle').textContent = '';
-            document.querySelector('.back-button').style.display = 'none';
-            currentSource = '';
         }}
 
         document.addEventListener('keydown', function(e) {{
@@ -322,7 +271,9 @@ channel_items = ""
 for name, cid, logo in channels:
     full_url = f"{base_url}{cid}.m3u8"
     proxy_url = PROXY + full_url
-    channel_items += f"<div class='channel-item' data-channel='{name}' data-href='{proxy_url}'>\n"
+    # URL'yi encode et
+    encoded_url = urllib.parse.quote(proxy_url, safe='')
+    channel_items += f"<div class='channel-item' onclick=\"playChannel('{proxy_url}', '{name}')\">\n"
     channel_items += f"    <a><img src='{logo}' alt='Logo'><span>{name}</span></a>\n"
     channel_items += "</div>\n"
 
@@ -332,4 +283,4 @@ html_output = html_template.format(channel_items=channel_items)
 with open("andro.html", "w", encoding="utf-8") as f:
     f.write(html_output)
 
-print("✅ andro.html THEOplayer ile oluşturuldu.")
+print("✅ andro.html THEOplayer iframe ile oluşturuldu.")
