@@ -1,18 +1,19 @@
-import urllib.request
+import requests
 
 def find_active_domain():
-    for num in range(112, 200, +1):
+    for num in range(112, 200):
         domain = f"https://betyaptv{num}.live"
         try:
-            req = urllib.request.Request(domain, method='HEAD')
-            with urllib.request.urlopen(req) as response:
-                if response.getcode() == 200:
-                    print(f"Active domain found: {domain}")
-                    return domain
-        except Exception as e:
-            print(f"Domain {domain} not active: {e}")
+            response = requests.get(domain, timeout=5)
+            if response.status_code == 200:
+                print(f"[AKTİF] {domain}")
+                return domain
+            else:
+                print(f"[PASİF] {domain} (Status Code: {response.status_code})")
+        except requests.exceptions.RequestException:
+            print(f"[PASİF] {domain}")
             pass
-    raise Exception("No active domain found between 112 and 999")
+    raise Exception("No active domain found between 112 and 199")
 
 def generate_html(active_domain):
     channels = [
@@ -170,7 +171,6 @@ def generate_html(active_domain):
         $(document).ready(function() {{
             $('.channel-item').on('click', function() {{
                 const href = $(this).data('href');
-                // Burada yönlendirme yapabilirsin
                 window.location.href = href;
             }});
         }});
