@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TITAN TV</title>
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@clappr/player@latest/dist/clappr.min.js"></script>
+    <script src='https://cdn.myth.theoplayer.com/7df9b5d2-4bb0-4f44-8c8a-99d5592727f7/theoplayer.js'></script>
+    <link rel='stylesheet' href='https://cdn.myth.theoplayer.com/7df9b5d2-4bb0-4f44-8c8a-99d5592727f7/theoplayer.css' />
     <style>
         *:not(input):not(textarea) {
             -moz-user-select: -moz-none;
@@ -67,6 +68,7 @@
             padding: 0;
             margin: 0;
             margin-top: 76px;
+            padding-bottom: 10px;
         }
 
         .channel-item {
@@ -114,7 +116,13 @@
             z-index: 100000;
         }
 
-        #player {
+        #player-wrapper {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        
+        .theoplayer-container {
             width: 100%;
             height: 100%;
         }
@@ -255,12 +263,15 @@
     </div>
 
     <div id="player-container">
-        <div id="player"></div>
+        <div id="player-wrapper">
+            <div id="theoplayer-container" class="theoplayer-container"></div>
+        </div>
         <button class="back-button" onclick="closePlayer()">✖ Kapat</button>
     </div>
 
     <script>
         let player = null;
+        let currentSource = '';
         
         document.querySelectorAll('.channel-item').forEach(item => {
             item.addEventListener('click', function() {
@@ -271,30 +282,61 @@
                 document.getElementById('player-container').style.display = 'block';
                 document.querySelector('.back-button').style.display = 'block';
                 
-                if (player) {
-                    player.destroy();
+                // Eğer aynı kaynak zaten yüklenmişse, sadece oynat
+                if (currentSource === channelUrl && player) {
+                    player.play();
+                    return;
                 }
                 
-                player = new Clappr.Player({
-                    source: channelUrl,
-                    parentId: "#player",
-                    autoPlay: true,
-                    mute: false,
-                    height: '100%',
-                    width: '100%',
-                    poster: 'https://i.hizliresim.com/t75soiq.png'
+                currentSource = channelUrl;
+                
+                // Eski player'ı temizle
+                if (player) {
+                    player.destroy();
+                    player = null;
+                }
+                
+                // Yeni player oluştur
+                const container = document.getElementById('theoplayer-container');
+                container.innerHTML = '';
+                
+                player = new THEOplayer.Player(container, {
+                    libraryLocation: 'https://cdn.myth.theoplayer.com/7df9b5d2-4bb0-4f44-8c8a-99d5592727f7/',
+                    license: 'your_license_key_here', // THEOplayer lisans anahtarınızı buraya ekleyin
+                    ui: {
+                        width: '100%',
+                        height: '100%'
+                    }
+                });
+                
+                // Kaynağı yükle ve oynat
+                player.source = {
+                    sources: [{
+                        src: channelUrl,
+                        type: 'application/x-mpegurl'
+                    }]
+                };
+                
+                player.autoplay = true;
+                
+                // Hata yönetimi
+                player.addEventListener('error', function(event) {
+                    console.error('Player error:', event);
+                    alert('Video yüklenirken bir hata oluştu: ' + event.error);
                 });
             });
         });
 
         function closePlayer() {
             if (player) {
+                player.pause();
                 player.destroy();
                 player = null;
             }
             document.getElementById('player-container').style.display = 'none';
             document.querySelector('.subtitle').textContent = '';
             document.querySelector('.back-button').style.display = 'none';
+            currentSource = '';
         }
 
         document.addEventListener('keydown', function(e) {
