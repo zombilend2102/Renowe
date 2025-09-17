@@ -76,7 +76,7 @@ channels = [
 
 # HTML şablonu
 html_template = '''<!DOCTYPE html>
-<html lang="en">
+<html lang="tr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -195,6 +195,20 @@ html_template = '''<!DOCTYPE html>
             width: 100%;
             height: 100%;
         }}
+        
+        .back-button {{
+            position: fixed;
+            top: 15px;
+            right: 15px;
+            z-index: 100001;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            display: none;
+        }}
     </style>
 </head>
 <body>
@@ -211,10 +225,12 @@ html_template = '''<!DOCTYPE html>
 
     <div id="player-container">
         <div id="player"></div>
+        <button class="back-button" onclick="closePlayer()">✖ Kapat</button>
     </div>
 
     <script>
         let player = null;
+        
         document.querySelectorAll('.channel-item').forEach(item => {{
             item.addEventListener('click', function() {{
                 const channelName = this.getAttribute('data-channel');
@@ -222,6 +238,7 @@ html_template = '''<!DOCTYPE html>
                 
                 document.querySelector('.subtitle').textContent = channelName;
                 document.getElementById('player-container').style.display = 'block';
+                document.querySelector('.back-button').style.display = 'block';
                 
                 if (player) {{
                     player.destroy();
@@ -233,19 +250,30 @@ html_template = '''<!DOCTYPE html>
                     autoPlay: true,
                     mute: false,
                     height: '100%',
-                    width: '100%'
+                    width: '100%',
+                    playback: {{
+                        playInline: true,
+                    }},
+                    plugins: {{
+                        core: [Clappr.LevelSelector]
+                    }}
                 }});
             }});
         }});
 
+        function closePlayer() {{
+            if (player) {{
+                player.destroy();
+                player = null;
+            }}
+            document.getElementById('player-container').style.display = 'none';
+            document.querySelector('.subtitle').textContent = '';
+            document.querySelector('.back-button').style.display = 'none';
+        }}
+
         document.addEventListener('keydown', function(e) {{
             if (e.key === 'Escape') {{
-                if (player) {{
-                    player.destroy();
-                    player = null;
-                }}
-                document.getElementById('player-container').style.display = 'none';
-                document.querySelector('.subtitle').textContent = '';
+                closePlayer();
             }}
         }});
     </script>
