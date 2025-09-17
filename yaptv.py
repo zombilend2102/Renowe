@@ -1,7 +1,7 @@
 import urllib.request
 
 def find_active_domain():
-    for num in range(999, 111, -1):
+    for num in range(112, 200, +1):
         domain = f"https://betyaptv{num}.live"
         try:
             req = urllib.request.Request(domain, method='HEAD')
