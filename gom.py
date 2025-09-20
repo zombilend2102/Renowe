@@ -9,7 +9,7 @@ from datetime import datetime
 
 class DiziGomScraper:
     def __init__(self):
-        self.main_url = "https://dizigom1.plus"
+        self.main_url = "https://dizigom1.de"
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
