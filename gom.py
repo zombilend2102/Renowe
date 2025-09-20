@@ -2,171 +2,334 @@ import requests
 from bs4 import BeautifulSoup
 import json
 import re
+from urllib.parse import urljoin
 import os
-import sys
-
-# Bu script, dizi verilerini çeker ve gom.html üretir.
-# Elle çalıştır: python gom.py
-# Otomatik için GitHub Actions ile entegre.
+import time
 
 class DiziGom:
     def __init__(self):
         self.main_url = "https://dizigom1.de"
         self.session = requests.Session()
-        self.session.headers.update({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"})
-        # main_page_urls eklendi
-        self.main_page_urls = {
-            "Aile": f"{self.main_url}/tur/aile/",
-            "Aksiyon": f"{self.main_url}/tur/aksiyon/",
-            "Animasyon": f"{self.main_url}/tur/animasyon/",
-            "Belgesel": f"{self.main_url}/tur/belgesel/",
-            "Bilim Kurgu": f"{self.main_url}/tur/bilim-kurgu/",
-            "Dram": f"{self.main_url}/tur/dram/",
-            "Fantastik": f"{self.main_url}/tur/fantastik/",
-            "Gerilim": f"{self.main_url}/tur/gerilim/",
-            "Komedi": f"{self.main_url}/tur/komedi/",
-            "Korku": f"{self.main_url}/tur/korku/",
-            "Macera": f"{self.main_url}/tur/macera/",
-            "Polisiye": f"{self.main_url}/tur/polisiye/",
-            "Romantik": f"{self.main_url}/tur/romantik/",
-            "Savaş": f"{self.main_url}/tur/savas/",
-            "Suç": f"{self.main_url}/tur/suc/",
-            "Tarih": f"{self.main_url}/tur/tarih/",
+        self.kategoriler = {
+            f"{self.main_url}/tur/aile/": "Aile",
+            f"{self.main_url}/tur/aksiyon/": "Aksiyon",
+            f"{self.main_url}/tur/animasyon/": "Animasyon",
+            f"{self.main_url}/tur/belgesel/": "Belgesel",
+            f"{self.main_url}/tur/bilim-kurgu/": "Bilim Kurgu",
+            f"{self.main_url}/tur/dram/": "Dram",
+            f"{self.main_url}/tur/fantastik/": "Fantastik",
+            f"{self.main_url}/tur/gerilim/": "Gerilim",
+            f"{self.main_url}/tur/komedi/": "Komedi",
+            f"{self.main_url}/tur/korku/": "Korku",
+            f"{self.main_url}/tur/macera/": "Macera",
+            f"{self.main_url}/tur/polisiye/": "Polisiye",
+            f"{self.main_url}/tur/romantik/": "Romantik",
+            f"{self.main_url}/tur/savas/": "Savaş",
+            f"{self.main_url}/tur/suc/": "Suç",
+            f"{self.main_url}/tur/tarih/": "Tarih",
+            f"{self.main_url}/dizi-arsivi-hd1/": "Dizi Arşivi",
         }
+        self.zaten_eklenenler = set()
 
-    def get_main_page(self, page=1, category="Dram"):
+    def _fix_url(self, url):
+        if not url:
+            return None
+        return urljoin(self.main_url, url)
+
+    def get_main_page(self, page, category_url):
         search_url = "/wp-admin/admin-ajax.php"
-        url = f"{self.main_page_urls[category]}#p={page}"
-        try:
-            response = self.session.get(url)
-            response.raise_for_status()
-            soup = BeautifulSoup(response.text, "html.parser")
-
-            if page > 1:
-                tax_input = soup.select_one("form.dizigom_advenced_search input[name^='tax_query']")
-                tax = tax_input["name"] if tax_input else None
-                value = tax_input["value"] if tax_input else None
-                data = {
-                    "action": "dizigom_advenced_search",
-                    "formData": f"{tax}={value}" if tax and value else "",
+        if page > 1:
+            response = self.session.post(
+                f"{self.main_url}{search_url}",
+                headers={"X-Requested-With": "XMLHttpRequest", "Referer": category_url},
+                data={
+                    "action": "dizigom_search_action",
+                    "formData": self._get_form_data(category_url),
                     "paged": str(page),
                     "_wpnonce": "18a90a7287"
                 }
-                headers = {
-                    "X-Requested-With": "XMLHttpRequest",
-                    "Referer": url
-                }
-                response = self.session.post(f"{self.main_url}{search_url}", data=data, headers=headers)
-                response.raise_for_status()
-                soup = BeautifulSoup(response.text, "html.parser")
+            )
+        else:
+            response = self.session.get(category_url)
+            time.sleep(1)
 
-            items = []
-            for element in soup.select("div.episode-box"):
-                title = element.select_one("div.serie-name a").text if element.select_one("div.serie-name a") else None
-                href = element.select_one("a")["href"] if element.select_one("a") else None
-                poster = element.select_one("img")["src"] if element.select_one("img") else None
-                score = element.select_one("div.episode-date").text.replace("IMDb:", "").strip() if element.select_one("div.episode-date") else None
+        soup = BeautifulSoup(response.text, 'html.parser')
+        items = soup.select("div.episode-box")
+        return [self._parse_item(item) for item in items if self._parse_item(item)]
 
-                if title and href:
-                    item = {
-                        "title": title,
-                        "url": href,
-                        "poster": poster,
-                        "score": score,
-                        "type": "TvSeries"
-                    }
-                    items.append(item)
+    def _get_form_data(self, url):
+        response = self.session.get(url)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        form_input = soup.select_one("form.dizigom_advenced_search input")
+        if form_input:
+            name = form_input.get("name")
+            value = form_input.get("value")
+            return f"{name}={value}"
+        return ""
 
-            return items
+    def _parse_item(self, item):
+        title = item.select_one("div.serie-name a")
+        href = item.select_one("a")
+        poster = item.select_one("img")
+        if not title or not href:
+            return None
+        return {
+            "baslik": title.text.strip(),
+            "afis_url": self._fix_url(poster.get("src") if poster else None),
+            "url": self._fix_url(href.get("href"))
+        }
+
+    def kac_sayfa_var(self, category_url):
+        try:
+            response = self.session.get(category_url)
+            soup = BeautifulSoup(response.text, 'html.parser')
+            sayfa_linkleri = soup.select("a.page-numbers")
+            if sayfa_linkleri:
+                sayfa_nolar = []
+                for link in sayfa_linkleri:
+                    try:
+                        sayfa_nolar.append(int(link.text))
+                    except ValueError:
+                        continue
+                return max(sayfa_nolar) if sayfa_nolar else 1
+            return 1
+        except:
+            return 1
+
+    def tum_sayfalari_cek(self, category_url):
+        tum_icerik = []
+        try:
+            toplam_sayfa = self.kac_sayfa_var(category_url)
+            print(f"Toplam {toplam_sayfa} sayfa bulundu.")
+            
+            for sayfa in range(1, toplam_sayfa + 1):
+                print(f"Sayfa {sayfa}/{toplam_sayfa} çekiliyor...")
+                icerikler = self.get_main_page(sayfa, category_url)
+                tum_icerik.extend(icerikler)
+                time.sleep(0.5)
         except Exception as e:
-            print(f"Ana sayfa hatası ({category}, sayfa {page}): {e}")
-            return []
+            print(f"Hata oluştu: {e}")
+        return tum_icerik
+
+    def search(self, query):
+        response = self.session.get(f"{self.main_url}/?s={query}")
+        soup = BeautifulSoup(response.text, 'html.parser')
+        items = soup.select("div.single-item")
+        return [self._parse_search_item(item) for item in items if self._parse_search_item(item)]
+
+    def _parse_search_item(self, item):
+        title = item.select_one("div.categorytitle a")
+        poster = item.select_one("img")
+        if not title:
+            return None
+        return {
+            "baslik": title.text.strip(),
+            "afis_url": self._fix_url(poster.get("src") if poster else None),
+            "url": self._fix_url(title.get("href"))
+        }
 
     def load(self, url):
-        try:
-            response = self.session.get(url)
-            response.raise_for_status()
-            soup = BeautifulSoup(response.text, "html.parser")
+        response = self.session.get(url)
+        soup = BeautifulSoup(response.text, 'html.parser')
 
-            title = soup.select_one("div.serieTitle h1").text.strip() if soup.select_one("div.serieTitle h1") else None
-            if not title:
-                return None
-
-            poster_style = soup.select_one("div.seriePoster")["style"] if soup.select_one("div.seriePoster") else ""
-            poster_match = re.search(r"background-image:url\((.*?)\)", poster_style)
-            poster = poster_match.group(1) if poster_match else None
-
-            episodes = []
-            for item in soup.select("div.bolumust"):
-                ep_href = item.select_one("a")["href"] if item.select_one("a") else ""
-                ep_name = item.select_one("div.bolum-ismi").text if item.select_one("div.bolum-ismi") else None
-                baslik = item.select_one("div.baslik").text if item.select_one("div.baslik") else ""
-                ep_info = baslik.split()
-                ep_season = int(ep_info[0].replace(".", "")) if ep_info else None
-                ep_episode = int(ep_info[2].replace(".", "")) if len(ep_info) > 2 else None
-                episode = {
-                    "url": ep_href,
-                    "name": ep_name,
-                    "season": ep_season,
-                    "episode": ep_episode
-                }
-                episodes.append(episode)
-
-            load_data = {
-                "title": title,
-                "url": url,
-                "poster": poster,
-                "episodes": episodes,
-                "type": "TvSeries" if episodes else "Movie"
-            }
-
-            return load_data
-        except Exception as e:
-            print(f"Yükleme hatası ({url}): {e}")
+        title = soup.select_one("div.serieTitle h1")
+        poster_style = soup.select_one("div.seriePoster")
+        if not title:
             return None
 
-    def load_links(self, data):
-        try:
-            response = self.session.get(data, headers={"Referer": self.main_url + "/"})
-            response.raise_for_status()
-            soup = BeautifulSoup(response.text, "html.parser")
+        afis_url = None
+        if poster_style and poster_style.get("style"):
+            match = re.search(r'background-image:url\((.*?)\)', poster_style.get("style"))
+            if match:
+                afis_url = self._fix_url(match.group(1))
 
-            # Script'leri tara
-            scripts = soup.select("script")
-            script_data = None
-            for script in scripts:
-                if script.string and "application/ld+json" in str(script):
-                    try:
-                        content_json = json.loads(script.string.strip())
-                        if "contentUrl" in content_json:
-                            script_data = content_json
-                            break
-                    except json.JSONDecodeError as e:
-                        print(f"JSON parse hatası ({data}): {e}")
+        bolumler = []
+        for item in soup.select("div.bolumust"):
+            ep_href = item.select_one("a")
+            ep_name = item.select_one("div.bolum-ismi")
+            ep_baslik = item.select_one("div.baslik")
+            if not ep_href:
+                continue
+
+            sezon = bolum = None
+            if ep_baslik:
+                baslik_text = ep_baslik.text.split()
+                if len(baslik_text) >= 3:
+                    sezon = int(baslik_text[0].replace(".", "")) if baslik_text[0].replace(".", "").isdigit() else None
+                    bolum = int(baslik_text[2].replace(".", "")) if baslik_text[2].replace(".", "").isdigit() else None
+
+            bolumler.append({
+                "bolum_url": self._fix_url(ep_href.get("href")),
+                "bolum_adi": ep_name.text.strip() if ep_name else None,
+                "sezon": sezon,
+                "bolum": bolum
+            })
+
+        return {
+            "baslik": title.text.strip(),
+            "afis_url": afis_url,
+            "bolumler": bolumler
+        }
+
+    def load_links(self, bolum_url):
+        try:
+            response = self.session.get(bolum_url, headers={"Referer": self.main_url + "/"})
+            soup = BeautifulSoup(response.text, 'html.parser')
+            script = soup.select_one("div#content script")
+            if not script or not script.string:
+                return None
+
+            json_data = json.loads(script.string)
+            embed_url = json_data.get("contentUrl")
+            if not embed_url:
+                return None
+
+            embed_url = embed_url.replace("https://", "https://play.")
+            return embed_url
+        except Exception as e:
+            print(f"Embed link alınırken hata: {e}")
+            return None
+
+    def tum_icerik_cek(self, kategori_url=None, arama_query=None):
+        tum_icerikler = []
+        
+        if arama_query:
+            print(f"Arama yapılıyor: {arama_query}")
+            arama_sonuclari = self.search(arama_query)
+            for item in arama_sonuclari:
+                if item["baslik"] in self.zaten_eklenenler:
+                    continue
+                    
+                icerik = self.load(item["url"])
+                if not icerik:
+                    continue
+                
+                bolumler_embed = []
+                for bolum in icerik.get("bolumler", []):
+                    embed_link = self.load_links(bolum["bolum_url"])
+                    if embed_link:
+                        bolumler_embed.append({
+                            "sezon": bolum["sezon"],
+                            "bolum": bolum["bolum"],
+                            "bolum_adi": bolum["bolum_adi"],
+                            "embed_link": embed_link
+                        })
+                
+                tum_icerikler.append({
+                    "baslik": icerik["baslik"],
+                    "afis_url": icerik["afis_url"],
+                    "bolumler": bolumler_embed,
+                    "kategori": "Arama Sonucu"
+                })
+                self.zaten_eklenenler.add(icerik["baslik"])
+        elif kategori_url:
+            kategori_adi = self.kategoriler.get(kategori_url, "Bilinmeyen Kategori")
+            print(f"{kategori_adi} kategorisinden içerik çekiliyor...")
+            
+            items = self.tum_sayfalari_cek(kategori_url)
+            
+            for item in items:
+                if item["baslik"] in self.zaten_eklenenler:
+                    continue
+                    
+                icerik = self.load(item["url"])
+                if not icerik:
+                    continue
+                
+                bolumler_embed = []
+                for bolum in icerik.get("bolumler", []):
+                    embed_link = self.load_links(bolum["bolum_url"])
+                    if embed_link:
+                        bolumler_embed.append({
+                            "sezon": bolum["sezon"],
+                            "bolum": bolum["bolum"],
+                            "bolum_adi": bolum["bolum_adi"],
+                            "embed_link": embed_link
+                        })
+                
+                tum_icerikler.append({
+                    "baslik": icerik["baslik"],
+                    "afis_url": icerik["afis_url"],
+                    "bolumler": bolumler_embed,
+                    "kategori": kategori_adi
+                })
+                self.zaten_eklenenler.add(icerik["baslik"])
+        else:
+            for kategori_url, kategori_adi in self.kategoriler.items():
+                print(f"{kategori_adi} kategorisinden içerik çekiliyor...")
+                
+                items = self.tum_sayfalari_cek(kategori_url)
+                
+                for item in items:
+                    if item["baslik"] in self.zaten_eklenenler:
                         continue
+                        
+                    icerik = self.load(item["url"])
+                    if not icerik:
+                        continue
+                    
+                    bolumler_embed = []
+                    for bolum in icerik.get("bolumler", []):
+                        embed_link = self.load_links(bolum["bolum_url"])
+                        if embed_link:
+                            bolumler_embed.append({
+                                "sezon": bolum["sezon"],
+                                "bolum": bolum["bolum"],
+                                "bolum_adi": bolum["bolum_adi"],
+                                "embed_link": embed_link
+                            })
+                    
+                    tum_icerikler.append({
+                        "baslik": icerik["baslik"],
+                        "afis_url": icerik["afis_url"],
+                        "bolumler": bolumler_embed,
+                        "kategori": kategori_adi
+                    })
+                    self.zaten_eklenenler.add(icerik["baslik"])
+        
+        return tum_icerikler
 
-            if not script_data:
-                print(f"JSON script bulunamadı: {data}")
-                return None
+    def _dizi_kartlari_olustur(self, icerikler):
+        kart_html = ""
+        for i, icerik in enumerate(icerikler):
+            kart_html += f"""
+        <div class="filmpanel" onclick="showBolumler('{i}')" data-kategori="{icerik['kategori']}">
+            <div class="filmresim"><img src="{icerik['afis_url']}"></div>
+            <div class="filmisimpanel">
+                <div class="filmisim">{icerik['baslik']}</div>
+            </div>
+        </div>"""
+        return kart_html
 
-            content_url = script_data.get("contentUrl", "")
-            if not content_url:
-                print(f"contentUrl bulunamadı: {data}")
-                return None
+    def _js_veri_olustur(self, icerikler):
+        js_veri = {}
+        for i, icerik in enumerate(icerikler):
+            bolumler = []
+            for bolum in icerik['bolumler']:
+                bolum_adi = f"{icerik['baslik']} {bolum['sezon']}.Sezon {bolum['bolum']}.Bölüm"
+                if bolum['bolum_adi']:
+                    bolum_adi += f" - {bolum['bolum_adi']}"
+                
+                bolumler.append({
+                    "ad": bolum_adi,
+                    "link": bolum['embed_link']
+                })
+            
+            js_veri[str(i)] = {
+                "resim": icerik['afis_url'],
+                "bolumler": bolumler
+            }
+        
+        return json.dumps(js_veri, ensure_ascii=False)
 
-            # Eğer contentUrl doğrudan embed linkiyse
-            if "embed" in content_url:
-                return content_url
-            else:
-                print(f"Embed linki bulunamadı: {content_url}")
-                return None
-        except Exception as e:
-            print(f"load_links hatası ({data}): {e}")
-            return None
-
-def generate_html(diziler):
-    html_template = """
-<!DOCTYPE html>
+    def html_olustur(self, icerikler, dosya_adi="gom.html"):
+        dizi_kartlari = self._dizi_kartlari_olustur(icerikler)
+        js_veri = self._js_veri_olustur(icerikler)
+        
+        tum_kategoriler = list(set([icerik["kategori"] for icerik in icerikler]))
+        kategori_butonlari = "".join([f'<div class="kategori-btn" onclick="showKategori(\'{kategori}\')">{kategori}</div>' for kategori in tum_kategoriler])
+        
+        html_template = f"""<!DOCTYPE html>
 <html lang="tr">
 <head>
     <title>TITAN TV YERLİ VOD</title>
@@ -176,15 +339,15 @@ def generate_html(diziler):
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script src="https://kit.fontawesome.com/bbe955c5ed.js" crossorigin="anonymous"></script>
     <style>
-        *:not(input):not(textarea) {
+        *:not(input):not(textarea) {{
             -moz-user-select: -moz-none;
             -khtml-user-select: none;
             -webkit-user-select: none;
             -o-user-select: none;
             -ms-user-select: none;
             user-select: none;
-        }
-        body {
+        }}
+        body {{
             margin: 0;
             padding: 0;
             background: #00040d;
@@ -197,22 +360,22 @@ def generate_html(diziler):
             text-decoration: none;
             -webkit-text-decoration: none;
             overflow-x: hidden;
-        }
-        .filmpaneldis {
+        }}
+        .filmpaneldis {{
             background: #15161a;
             width: 100%;
             margin: 20px auto;
             overflow: hidden;
             padding: 10px 5px;
             box-sizing: border-box;
-        }
-        .baslik {
+        }}
+        .baslik {{
             width: 96%;
             color: #fff;
             padding: 15px 10px;
             box-sizing: border-box;
-        }
-        .filmpanel {
+        }}
+        .filmpanel {{
             width: 12%;
             height: 200px;
             background: #15161a;
@@ -227,35 +390,35 @@ def generate_html(diziler):
             overflow: hidden;
             transition: border 0.3s ease, box-shadow 0.3s ease;
             cursor: pointer;
-        }
-        .filmisimpanel {
+        }}
+        .filmisimpanel {{
             width: 100%;
             height: 200px;
             position: relative;
             margin-top: -200px;
             background: linear-gradient(to bottom, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 1) 100%);
-        }
-        .filmpanel:hover {
+        }}
+        .filmpanel:hover {{
             color: #fff;
             border: 3px solid #572aa7;
-            box-shadow: 0 0 10px rgba(87, 42, 167, 0.5);
-        }
-        .filmresim {
+            box-shadow: 0 0 10px rgba(87,42,167,0.5);
+        }}
+        .filmresim {{
             width: 100%;
             height: 100%;
             margin-bottom: 0px;
             overflow: hidden;
             position: relative;
-        }
-        .filmresim img {
+        }}
+        .filmresim img {{
             width: 100%;
             height: 100%;
             transition: transform 0.4s ease;
-        }
-        .filmpanel:hover .filmresim img {
+        }}
+        .filmpanel:hover .filmresim img {{
             transform: scale(1.1);
-        }
-        .filmisim {
+        }}
+        .filmisim {{
             width: 100%;
             font-size: 14px;
             text-decoration: none;
@@ -267,8 +430,8 @@ def generate_html(diziler):
             color: #fff;
             position: absolute;
             bottom: 25px;
-        }
-        .aramapanel {
+        }}
+        .aramapanel {{
             width: 100%;
             height: 60px;
             background: #15161a;
@@ -278,22 +441,22 @@ def generate_html(diziler):
             box-sizing: border-box;
             overflow: hidden;
             z-index: 11111;
-        }
-        .aramapanelsag {
+        }}
+        .aramapanelsag {{
             width: auto;
             height: 40px;
             box-sizing: border-box;
             overflow: hidden;
             float: right;
-        }
-        .aramapanelsol {
+        }}
+        .aramapanelsol {{
             width: 50%;
             height: 40px;
             box-sizing: border-box;
             overflow: hidden;
             float: left;
-        }
-        .aramapanelyazi {
+        }}
+        .aramapanelyazi {{
             height: 40px;
             width: 120px;
             border: 1px solid #ccc;
@@ -302,8 +465,8 @@ def generate_html(diziler):
             background: #fff;
             color: #000;
             margin: 0px 5px;
-        }
-        .aramapanelbuton {
+        }}
+        .aramapanelbuton {{
             height: 40px;
             width: 40px;
             text-align: center;
@@ -314,37 +477,37 @@ def generate_html(diziler):
             overflow: hidden;
             float: right;
             transition: .35s;
-        }
-        .aramapanelbuton:hover {
+        }}
+        .aramapanelbuton:hover {{
             background-color: #fff;
             color: #000;
-        }
-        .logo {
+        }}
+        .logo {{
             width: 40px;
             height: 40px;
             float: left;
-        }
-        .logo img {
+        }}
+        .logo img {{
             width: 100%;
-        }
-        .logoisim {
+        }}
+        .logoisim {{
             font-size: 15px;
             width: 70%;
             height: 40px;
             line-height: 40px;
             font-weight: 500;
             color: #fff;
-        }
-        .hidden {
+        }}
+        .hidden {{
             display: none;
-        }
-        .bolum-container {
+        }}
+        .bolum-container {{
             background: #15161a;
             padding: 10px;
             margin-top: 10px;
             border-radius: 5px;
-        }
-        .geri-btn {
+        }}
+        .geri-btn {{
             background: #572aa7;
             color: white;
             padding: 10px;
@@ -355,12 +518,12 @@ def generate_html(diziler):
             margin-bottom: 10px;
             display: none;
             width: 100px;
-        }
-        .geri-btn:hover {
+        }}
+        .geri-btn:hover {{
             background: #6b3ec7;
             transition: background 0.3s;
-        }
-        .playerpanel {
+        }}
+        .playerpanel {{
             width: 100vw;
             height: 100vh;
             position: fixed;
@@ -373,8 +536,8 @@ def generate_html(diziler):
             overflow: hidden;
             margin: 0;
             padding: 0;
-        }
-        .player-geri-btn {
+        }}
+        .player-geri-btn {{
             background: #572aa7;
             color: white;
             padding: 10px;
@@ -387,42 +550,65 @@ def generate_html(diziler):
             position: absolute;
             top: 0;
             left: 0;
-        }
-        .player-geri-btn:hover {
+        }}
+        .player-geri-btn:hover {{
             background: #6b3ec7;
             transition: background 0.3s;
-        }
-        #iframe-player {
+        }}
+        #iframe-player {{
             width: 100%;
             height: 100%;
             border: none;
             position: absolute;
             top: 0;
             left: 0;
-        }
-        @media(max-width:900px) {
-            .filmpanel {
+        }}
+        .kategori-secim {{
+            width: 100%;
+            padding: 10px;
+            background: #15161a;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #323442;
+        }}
+        .kategori-btn {{
+            background: #572aa7;
+            color: white;
+            padding: 8px 15px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            display: inline-block;
+        }}
+        .kategori-btn:hover {{
+            background: #6b3ec7;
+        }}
+        @media(max-width:900px) {{
+            .filmpanel {{
                 width: 17%;
                 height: 220px;
                 margin: 1.5%;
-            }
-        }
-        @media(max-width:550px) {
-            .filmisimpanel {
+            }}
+        }}
+        @media(max-width:550px) {{
+            .filmisimpanel {{
                 height: 190px;
                 margin-top: -190px;
-            }
-            .filmpanel {
+            }}
+            .filmpanel {{
                 width: 31.33%;
                 height: 190px;
                 margin: 1%;
-            }
-            .player-geri-btn {
+            }}
+            .player-geri-btn {{
                 width: 80px;
                 padding: 8px;
                 font-size: 14px;
-            }
-        }
+            }}
+            .kategori-btn {{
+                padding: 6px 10px;
+                font-size: 12px;
+            }}
+        }}
     </style>
 </head>
 <body>
@@ -439,10 +625,15 @@ def generate_html(diziler):
         </div>
     </div>
 
+    <div class="kategori-secim">
+        <div class="kategori-btn" onclick="showKategori('all')">Tümü</div>
+        {kategori_butonlari}
+    </div>
+
     <div class="filmpaneldis">
-        <div class="baslik">YERLİ DİZİLER VOD BÖLÜM</div>
+        <div class="baslik">DİZİLER VOD BÖLÜM</div>
         
-        {dizi_panelleri}
+        {dizi_kartlari}
     </div>
 
     <div id="bolumler" class="bolum-container hidden">
@@ -456,172 +647,137 @@ def generate_html(diziler):
     </div>
 
     <script>
-        var diziler = {dizi_json};
-
+        var diziler = {js_veri};
+        var kategoriler = {json.dumps({icerik["baslik"]: icerik["kategori"] for icerik in icerikler}, ensure_ascii=False)};
+        
         let currentScreen = 'anaSayfa';
 
-        function showBolumler(diziID) {
+        function showBolumler(diziID) {{
             sessionStorage.setItem('currentDiziID', diziID);
             var listContainer = document.getElementById("bolumListesi");
             listContainer.innerHTML = "";
             
-            if (diziler[diziID]) {
-                diziler[diziID].bolumler.forEach(function(bolum) {
+            if (diziler[diziID]) {{
+                diziler[diziID].bolumler.forEach(function(bolum) {{
                     var item = document.createElement("div");
                     item.className = "filmpanel";
                     item.innerHTML = `
-                        <div class="filmresim"><img src="${diziler[diziID].resim}"></div>
+                        <div class="filmresim"><img src="${{diziler[diziID].resim}}"></div>
                         <div class="filmisimpanel">
-                            <div class="filmisim">${bolum.ad}</div>
+                            <div class="filmisim">${{bolum.ad}}</div>
                         </div>
                     `;
-                    item.onclick = function() {
+                    item.onclick = function() {{
                         showPlayer(bolum.link);
-                    };
+                    }};
                     listContainer.appendChild(item);
-                });
-            } else {
+                }});
+            }} else {{
                 listContainer.innerHTML = "<p>Bu dizi için bölüm bulunamadı.</p>";
-            }
+            }}
             
             document.querySelector(".filmpaneldis").classList.add("hidden");
             document.getElementById("bolumler").classList.remove("hidden");
             document.getElementById("geriBtn").style.display = "block";
             currentScreen = 'bolumler';
-        }
+        }}
 
-        function showPlayer(videoUrl) {
+        function showPlayer(videoUrl) {{
             document.getElementById("playerpanel").style.display = "flex";
             document.getElementById("bolumler").classList.add("hidden");
             currentScreen = 'player';
             
-            // Iframe ile video oynatma
             var iframePlayer = document.getElementById("iframe-player");
             iframePlayer.src = videoUrl;
-            
-            // Tam ekran desteği için allowfullscreen özelliği eklendi
             iframePlayer.setAttribute('allowfullscreen', 'true');
-        }
+        }}
 
-        function geriPlayer() {
+        function geriPlayer() {{
             document.getElementById("playerpanel").style.display = "none";
             document.getElementById("bolumler").classList.remove("hidden");
             currentScreen = 'bolumler';
-            
-            // Iframe kaynağını sıfırla
             document.getElementById("iframe-player").src = "";
-        }
+        }}
 
-        function geriDon() {
+        function geriDon() {{
             sessionStorage.removeItem('currentDiziID');
             document.querySelector(".filmpaneldis").classList.remove("hidden");
             document.getElementById("bolumler").classList.add("hidden");
             document.getElementById("geriBtn").style.display = "none";
             currentScreen = 'anaSayfa';
-        }
+        }}
 
-        function checkInitialState() {
+        function checkInitialState() {{
             var currentDiziID = sessionStorage.getItem('currentDiziID');
-            if (currentDiziID) {
+            if (currentDiziID) {{
                 showBolumler(currentDiziID);
-            } else {
+            }} else {{
                 currentScreen = 'anaSayfa';
                 document.querySelector(".filmpaneldis").classList.remove("hidden");
                 document.getElementById("bolumler").classList.add("hidden");
                 document.getElementById("playerpanel").style.display = "none";
                 document.getElementById("geriBtn").style.display = "none";
-            }
-        }
+            }}
+        }}
 
         document.addEventListener('DOMContentLoaded', checkInitialState);
 
-        function searchSeries() {
+        function searchSeries() {{
             var query = document.getElementById('seriesSearch').value.toLowerCase();
             var series = document.querySelectorAll('.filmpanel');
-            series.forEach(function(serie) {
+            series.forEach(function(serie) {{
                 var title = serie.querySelector('.filmisim').textContent.toLowerCase();
-                if (title.includes(query)) {
+                if (title.includes(query)) {{
                     serie.style.display = "block";
-                } else {
+                }} else {{
                     serie.style.display = "none";
-                }
-            });
+                }}
+            }});
             return false;
-        }
+        }}
 
-        function resetSeriesSearch() {
+        function resetSeriesSearch() {{
             var query = document.getElementById('seriesSearch').value.toLowerCase();
-            if (query === "") {
+            if (query === "") {{
                 var series = document.querySelectorAll('.filmpanel');
-                series.forEach(function(serie) {
+                series.forEach(function(serie) {{
                     serie.style.display = "block";
-                });
-            }
-        }
+                }});
+            }}
+        }}
+
+        function showKategori(kategori) {{
+            var series = document.querySelectorAll('.filmpanel');
+            series.forEach(function(serie, index) {{
+                var diziBaslik = serie.querySelector('.filmisim').textContent;
+                if (kategori === 'all' || kategoriler[diziBaslik] === kategori) {{
+                    serie.style.display = "block";
+                }} else {{
+                    serie.style.display = "none";
+                }}
+            }});
+        }}
     </script>
 </body>
-</html>
-    """
+</html>"""
 
-    dizi_json = {}
-    dizi_panelleri = ""
-    dizi_id = 1
+        with open(dosya_adi, "w", encoding="utf-8") as f:
+            f.write(html_template)
+        
+        print(f"HTML dosyası '{dosya_adi}' olarak kaydedildi.")
+        return dosya_adi
 
-    dizi_scraper = DiziGom()
-    categories = list(dizi_scraper.main_page_urls.keys())
-    all_diziler = []
-    for category in categories:
-        all_diziler.extend(dizi_scraper.get_main_page(page=1, category=category))
-
-    for dizi in all_diziler:
-        dizi_data = dizi_scraper.load(dizi['url'])
-        if dizi_data:
-            bolumler = []
-            for episode in dizi_data['episodes']:
-                embed_link = dizi_scraper.load_links(episode['url'])
-                if embed_link:
-                    bolumler.append({
-                        "ad": f"{dizi_data['title']} - S{episode['season']}E{episode['episode']} {episode['name'] or ''}",
-                        "link": embed_link
-                    })
-            if bolumler:
-                dizi_json[str(dizi_id)] = {
-                    "resim": dizi_data['poster'] or dizi['poster'],
-                    "bolumler": bolumler
-                }
-                dizi_panelleri += f"""
-                    <div class="filmpanel" onclick="showBolumler('{dizi_id}')">
-                        <div class="filmresim"><img src="{dizi_data['poster'] or dizi['poster']}"></div>
-                        <div class="filmisimpanel">
-                            <div class="filmisim">{dizi_data['title']}</div>
-                        </div>
-                    </div>
-                """
-                dizi_id += 1
-
-    html = html_template.format(dizi_panelleri=dizi_panelleri, dizi_json=json.dumps(dizi_json, ensure_ascii=False))
-
-    with open("gom.html", "w", encoding="utf-8") as f:
-        f.write(html)
-    print("gom.html oluşturuldu.")
-
+# Kodu çalıştır
 if __name__ == "__main__":
-    # GitHub Actions ile çalışıp çalışmadığını kontrol et
-    is_github_action = os.getenv("GITHUB_ACTIONS") == "true"
-
-    # Dizi verilerini topla ve gom.html oluştur
-    generate_html([])
-
-    # Eğer GitHub Actions içindeyse, gom.html'yi repoya kaydet
-    if is_github_action:
-        try:
-            # GitHub Actions ortamında dosya kaydetme
-            import subprocess
-            subprocess.run(["git", "config", "--global", "user.email", "action@github.com"])
-            subprocess.run(["git", "config", "--global", "user.name", "GitHub Action"])
-            subprocess.run(["git", "add", "gom.html"])
-            subprocess.run(["git", "commit", "-m", "Update gom.html with latest series data"])
-            subprocess.run(["git", "push"])
-            print("gom.html GitHub repoya kaydedildi.")
-        except Exception as e:
-            print(f"GitHub repoya kaydetme hatası: {e}")
+    dizigom = DiziGom()
+    
+    # Tüm kategorilerden içerik çek
+    print("Tüm kategorilerden içerik çekiliyor...")
+    icerikler = dizigom.tum_icerik_cek()
+    
+    # HTML oluştur ve kaydet
+    print("HTML oluşturuluyor...")
+    dizigom.html_olustur(icerikler, "gom.html")
+    
+    print("İşlem tamamlandı! gom.html dosyası oluşturuldu.")
+    print(f"Toplam {len(icerikler)} dizi eklendi.")
