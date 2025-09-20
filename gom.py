@@ -162,11 +162,11 @@ class DiziGomScraper:
             desc_elem = soup.select_one('div.serieDescription p')
             description = desc_elem.text.strip() if desc_elem else None
             
-            # Bölümler
-            episodes = []
-            episode_containers = soup.select('div.bolumust')
+            # Tüm sezonları bul
+            seasons = {}
+            season_containers = soup.select('div.bolumust')
             
-            for container in episode_containers:
+            for container in season_containers:
                 try:
                     ep_link_elem = container.select_one('a')
                     ep_href = ep_link_elem.get('href') if ep_link_elem else ''
@@ -182,17 +182,24 @@ class DiziGomScraper:
                     episode_num = None
                     
                     if ep_title:
-                        parts = ep_title.split()
-                        if len(parts) >= 3:
-                            season_part = parts[0].replace('.', '')
-                            episode_part = parts[2].replace('.', '')
-                            
-                            if season_part.isdigit():
-                                season_num = int(season_part)
-                            if episode_part.isdigit():
-                                episode_num = int(episode_part)
+                        # Sezon ve bölüm bilgilerini daha iyi parse etmek için
+                        season_match = re.search(r'Sezon\s*(\d+)', ep_title, re.IGNORECASE)
+                        episode_match = re.search(r'Bölüm\s*(\d+)', ep_title, re.IGNORECASE)
+                        
+                        if season_match:
+                            season_num = int(season_match.group(1))
+                        if episode_match:
+                            episode_num = int(episode_match.group(1))
                     
-                    episodes.append({
+                    # Sezon numarası yoksa varsayılan olarak 1. sezon
+                    if season_num is None:
+                        season_num = 1
+                    
+                    # Sezon için liste yoksa oluştur
+                    if season_num not in seasons:
+                        seasons[season_num] = []
+                    
+                    seasons[season_num].append({
                         'name': ep_name,
                         'url': ep_href,
                         'season': season_num,
@@ -207,7 +214,7 @@ class DiziGomScraper:
                 'title': title,
                 'poster': poster_url,
                 'description': description,
-                'episodes': episodes
+                'seasons': seasons
             }
             
         except Exception as e:
@@ -505,6 +512,15 @@ class DiziGomScraper:
             top: 0;
             left: 0;
         }
+        .season-selector {
+            background: #572aa7;
+            color: white;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            cursor: pointer;
+            text-align: center;
+        }
         @media(max-width:900px) {
             .filmpanel {
                 width: 17%;
@@ -551,6 +567,7 @@ class DiziGomScraper:
 
     <div id="bolumler" class="bolum-container hidden">
         <div id="geriBtn" class="geri-btn" onclick="geriDon()">Geri</div>
+        <div id="seasonSelector" style="display: none;"></div>
         <div id="bolumListesi" class="filmpaneldis"></div>
     </div>
 
@@ -563,14 +580,55 @@ class DiziGomScraper:
         var diziler = ${DIZILER_JSON};
         
         let currentScreen = 'anaSayfa';
+        let currentDiziID = null;
 
         function showBolumler(diziID) {
+            currentDiziID = diziID;
             sessionStorage.setItem('currentDiziID', diziID);
+            var listContainer = document.getElementById("bolumListesi");
+            var seasonSelector = document.getElementById("seasonSelector");
+            listContainer.innerHTML = "";
+            seasonSelector.innerHTML = "";
+            
+            if (diziler[diziID]) {
+                // Sezon seçiciyi oluştur
+                const seasons = Object.keys(diziler[diziID].seasons);
+                if (seasons.length > 1) {
+                    seasonSelector.style.display = 'block';
+                    seasonSelector.innerHTML = '<div style="color: white; margin-bottom: 10px;">Sezon Seçin:</div>';
+                    
+                    seasons.forEach(season => {
+                        const seasonBtn = document.createElement('div');
+                        seasonBtn.className = 'season-selector';
+                        seasonBtn.textContent = `Sezon ${season}`;
+                        seasonBtn.onclick = function() {
+                            showSeasonEpisodes(diziID, season);
+                        };
+                        seasonSelector.appendChild(seasonBtn);
+                    });
+                    
+                    // İlk sezonu göster
+                    showSeasonEpisodes(diziID, seasons[0]);
+                } else if (seasons.length === 1) {
+                    seasonSelector.style.display = 'none';
+                    showSeasonEpisodes(diziID, seasons[0]);
+                }
+            } else {
+                listContainer.innerHTML = "<p>Bu dizi için bölüm bulunamadı.</p>";
+            }
+            
+            document.querySelector(".filmpaneldis").classList.add("hidden");
+            document.getElementById("bolumler").classList.remove("hidden");
+            document.getElementById("geriBtn").style.display = "block";
+            currentScreen = 'bolumler';
+        }
+
+        function showSeasonEpisodes(diziID, season) {
             var listContainer = document.getElementById("bolumListesi");
             listContainer.innerHTML = "";
             
-            if (diziler[diziID]) {
-                diziler[diziID].bolumler.forEach(function(bolum) {
+            if (diziler[diziID] && diziler[diziID].seasons[season]) {
+                diziler[diziID].seasons[season].forEach(function(bolum) {
                     var item = document.createElement("div");
                     item.className = "filmpanel";
                     item.innerHTML = `
@@ -584,14 +642,7 @@ class DiziGomScraper:
                     };
                     listContainer.appendChild(item);
                 });
-            } else {
-                listContainer.innerHTML = "<p>Bu dizi için bölüm bulunamadı.</p>";
             }
-            
-            document.querySelector(".filmpaneldis").classList.add("hidden");
-            document.getElementById("bolumler").classList.remove("hidden");
-            document.getElementById("geriBtn").style.display = "block";
-            currentScreen = 'bolumler';
         }
 
         function showPlayer(videoUrl) {
@@ -625,9 +676,9 @@ class DiziGomScraper:
         }
 
         function checkInitialState() {
-            var currentDiziID = sessionStorage.getItem('currentDiziID');
-            if (currentDiziID) {
-                showBolumler(currentDiziID);
+            var savedDiziID = sessionStorage.getItem('currentDiziID');
+            if (savedDiziID) {
+                showBolumler(savedDiziID);
             } else {
                 currentScreen = 'anaSayfa';
                 document.querySelector(".filmpaneldis").classList.remove("hidden");
@@ -682,7 +733,7 @@ class DiziGomScraper:
         for i, (series_id, series_info) in enumerate(series_data.items(), 1):
             diziler_json[str(i)] = {
                 "resim": series_info['resim'],
-                "bolumler": series_info['bolumler']
+                "seasons": series_info['seasons']
             }
         
         # HTML'i oluştur ve kaydet
@@ -707,35 +758,43 @@ def main():
     
     for category_url, category_name in list(categories.items())[:3]:  # İlk 3 kategori
         print(f"{category_name} kategorisi işleniyor...")
-        series_list = scraper.scrape_series_from_category(category_url, max_pages=1)
+        series_list = scraper.scrape_series_from_category(category_url, max_pages=2)
         
         for series in series_list[:5]:  # Her kategoriden ilk 5 dizi
             print(f"  {series['title']} işleniyor...")
             
             # Dizi detaylarını al
             series_details = scraper.get_series_details(series['url'])
-            if not series_details:
+            if not series_details or not series_details.get('seasons'):
                 continue
             
-            # Bölüm video linklerini al
-            episodes_with_links = []
-            for episode in series_details['episodes'][:4]:  # İlk 4 bölüm
-                print(f"    {episode['title']} bölümü işleniyor...")
-                video_url = scraper.get_episode_video_url(episode['url'])
-                
-                if video_url:
-                    episodes_with_links.append({
-                        'ad': episode['title'],
-                        'link': video_url
-                    })
-                time.sleep(1)  # Sunucu yükünü azaltmak için
+            # Tüm sezon ve bölümlerin video linklerini al
+            seasons_with_episodes = {}
             
-            if episodes_with_links:
+            for season_num, episodes in series_details['seasons'].items():
+                print(f"    Sezon {season_num} işleniyor...")
+                episodes_with_links = []
+                
+                for episode in episodes:
+                    print(f"      {episode['title']} bölümü işleniyor...")
+                    video_url = scraper.get_episode_video_url(episode['url'])
+                    
+                    if video_url:
+                        episodes_with_links.append({
+                            'ad': episode['title'],
+                            'link': video_url
+                        })
+                    time.sleep(1)  # Sunucu yükünü azaltmak için
+                
+                if episodes_with_links:
+                    seasons_with_episodes[season_num] = episodes_with_links
+            
+            if seasons_with_episodes:
                 series_id = f"series_{len(all_series) + 1}"
                 all_series[series_id] = {
                     'isim': series_details['title'],
                     'resim': series_details['poster'] or series['poster'],
-                    'bolumler': episodes_with_links
+                    'seasons': seasons_with_episodes
                 }
             
             time.sleep(2)  # Sunucu yükünü azaltmak için
@@ -743,7 +802,7 @@ def main():
     # HTML oluştur
     if all_series:
         scraper.generate_html(all_series, 'gom.html')
-        print("İşlem tamamlandı!")
+        print("İşlem tamamlandı! Toplam {} dizi eklendi.".format(len(all_series)))
     else:
         print("Hiç dizi bulunamadı!")
 
