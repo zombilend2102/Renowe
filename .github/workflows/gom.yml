@@ -31,5 +31,5 @@ jobs:
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         git add gom.html
-        git diff --staged --quiet || git commit -m "Update gom.html - $(date)"
+        git diff --staged --quiet || git commit -m "Update gom.html - $(date +'%Y-%m-%d %H:%M')"
         git push
