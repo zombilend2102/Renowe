@@ -1,186 +1,153 @@
 import requests
+from bs4 import BeautifulSoup
 import json
 import re
 import os
-import time
-from bs4 import BeautifulSoup
-from urllib.parse import urljoin
+import sys
 
-class DiziGomScraper:
+# Bu script, dizi verilerini çeker ve gom.html üretir.
+# Elle çalıştır: python gom.py
+# Otomatik için GitHub Actions ile entegre.
+
+class DiziGom:
     def __init__(self):
         self.main_url = "https://dizigom1.de"
         self.session = requests.Session()
-        self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        })
-    
-    def scrape_single_series(self):
-        """Aile kategorisinden sadece ilk diziyi çeker"""
+        self.session.headers.update({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"})
+
+    def get_main_page(self, page=1, category="Dram"):
+        search_url = "/wp-admin/admin-ajax.php"
+        url = f"{self.main_url}/tur/{category.lower()}/#p={page}"
         try:
-            category_url = f"{self.main_url}/tur/aile/"
-            response = self.session.get(category_url)
-            soup = BeautifulSoup(response.text, 'html.parser')
-            
-            # Dizi kutularını bul
-            series_boxes = soup.select('div.episode-box, div.single-item')
-            
-            if not series_boxes:
-                print("Aile kategorisinde dizi bulunamadı.")
-                return None
-            
-            # Sadece ilk diziyi al
-            box = series_boxes[0]
-            
-            title_elem = box.select_one('h3, h4, .serie-name, .categorytitle, a[href*="/dizi/"]')
-            if not title_elem:
-                return None
-                
-            title = title_elem.text.strip()
-            href = title_elem.get('href')
-            if href and not href.startswith('http'):
-                href = urljoin(self.main_url, href)
-                
-            poster_elem = box.select_one('img')
-            poster_url = poster_elem.get('src') if poster_elem else None
-            if poster_url and not poster_url.startswith('http'):
-                poster_url = urljoin(self.main_url, poster_url)
-            
-            print(f"Bulunan dizi: {title}")
-            print(f"Dizi URL: {href}")
-            
-            return {
-                'title': title,
-                'url': href,
-                'poster': poster_url
-            }
-            
+            response = self.session.get(url)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.text, "html.parser")
+
+            if page > 1:
+                tax_input = soup.select_one("form.dizigom_advenced_search input[name^='tax_query']")
+                tax = tax_input["name"] if tax_input else None
+                value = tax_input["value"] if tax_input else None
+                data = {
+                    "action": "dizigom_advenced_search",
+                    "formData": f"{tax}={value}" if tax and value else "",
+                    "paged": str(page),
+                    "_wpnonce": "18a90a7287"
+                }
+                headers = {
+                    "X-Requested-With": "XMLHttpRequest",
+                    "Referer": url
+                }
+                response = self.session.post(f"{self.main_url}{search_url}", data=data, headers=headers)
+                response.raise_for_status()
+                soup = BeautifulSoup(response.text, "html.parser")
+
+            items = []
+            for element in soup.select("div.episode-box"):
+                title = element.select_one("div.serie-name a").text if element.select_one("div.serie-name a") else None
+                href = element.select_one("a")["href"] if element.select_one("a") else None
+                poster = element.select_one("img")["src"] if element.select_one("img") else None
+                score = element.select_one("div.episode-date").text.replace("IMDb:", "").strip() if element.select_one("div.episode-date") else None
+
+                if title and href:
+                    item = {
+                        "title": title,
+                        "url": href,
+                        "poster": poster,
+                        "score": score,
+                        "type": "TvSeries"
+                    }
+                    items.append(item)
+
+            return items
         except Exception as e:
-            print(f"Aile kategorisi çekilirken hata: {e}")
-            return None
-    
-    def get_series_details(self, series_url):
+            print(f"Ana sayfa hatası ({category}, sayfa {page}): {e}")
+            return []
+
+    def load(self, url):
         try:
-            response = self.session.get(series_url)
-            soup = BeautifulSoup(response.text, 'html.parser')
-            
-            # Başlık
-            title_elem = soup.select_one('div.serieTitle h1, h1.title')
-            title = title_elem.text.strip() if title_elem else None
-            
-            # Poster
-            poster_elem = soup.select_one('div.seriePoster, img.poster')
-            poster_url = None
-            
-            if poster_elem:
-                if poster_elem.get('style') and 'background-image:url(' in poster_elem.get('style'):
-                    poster_style = poster_elem.get('style')
-                    poster_url = poster_style.split('background-image:url(')[1].split(')')[0]
-                elif poster_elem.get('src'):
-                    poster_url = poster_elem.get('src')
-            
-            if poster_url and not poster_url.startswith('http'):
-                poster_url = urljoin(self.main_url, poster_url)
-            
-            # Tüm sezonları bul
-            seasons = {}
-            season_containers = soup.select('div.bolumust, .episode-list, .season-container')
-            
-            for container in season_containers:
-                try:
-                    ep_link_elem = container.select_one('a')
-                    ep_href = ep_link_elem.get('href') if ep_link_elem else ''
-                    
-                    ep_name_elem = container.select_one('div.bolum-ismi, .episode-title')
-                    ep_name = ep_name_elem.text.strip() if ep_name_elem else ''
-                    
-                    ep_title_elem = container.select_one('div.baslik, .episode-name')
-                    ep_title = ep_title_elem.text.strip() if ep_title_elem else ep_name
-                    
-                    # Sezon ve bölüm numaralarını çıkar
-                    season_num = 1  # Varsayılan olarak 1. sezon
-                    episode_num = None
-                    
-                    if ep_title:
-                        # Sezon ve bölüm bilgilerini parse etmek için
-                        season_match = re.search(r'Sezon\s*(\d+)', ep_title, re.IGNORECASE)
-                        episode_match = re.search(r'Bölüm\s*(\d+)', ep_title, re.IGNORECASE)
-                        
-                        if season_match:
-                            season_num = int(season_match.group(1))
-                        if episode_match:
-                            episode_num = int(episode_match.group(1))
-                    
-                    # Sezon için liste yoksa oluştur
-                    if season_num not in seasons:
-                        seasons[season_num] = []
-                    
-                    seasons[season_num].append({
-                        'name': ep_name,
-                        'url': ep_href,
-                        'season': season_num,
-                        'episode': episode_num,
-                        'title': ep_title
-                    })
-                except Exception as e:
-                    print(f"Bölüm ayrıştırma hatası: {e}")
-                    continue
-            
-            return {
-                'title': title,
-                'poster': poster_url,
-                'seasons': seasons
+            response = self.session.get(url)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.text, "html.parser")
+
+            title = soup.select_one("div.serieTitle h1").text.strip() if soup.select_one("div.serieTitle h1") else None
+            if not title:
+                return None
+
+            poster_style = soup.select_one("div.seriePoster")["style"] if soup.select_one("div.seriePoster") else ""
+            poster_match = re.search(r"background-image:url\((.*?)\)", poster_style)
+            poster = poster_match.group(1) if poster_match else None
+
+            episodes = []
+            for item in soup.select("div.bolumust"):
+                ep_href = item.select_one("a")["href"] if item.select_one("a") else ""
+                ep_name = item.select_one("div.bolum-ismi").text if item.select_one("div.bolum-ismi") else None
+                baslik = item.select_one("div.baslik").text if item.select_one("div.baslik") else ""
+                ep_info = baslik.split()
+                ep_season = int(ep_info[0].replace(".", "")) if ep_info else None
+                ep_episode = int(ep_info[2].replace(".", "")) if len(ep_info) > 2 else None
+                episode = {
+                    "url": ep_href,
+                    "name": ep_name,
+                    "season": ep_season,
+                    "episode": ep_episode
+                }
+                episodes.append(episode)
+
+            load_data = {
+                "title": title,
+                "url": url,
+                "poster": poster,
+                "episodes": episodes,
+                "type": "TvSeries" if episodes else "Movie"
             }
-            
+
+            return load_data
         except Exception as e:
-            print(f"Dizi detayları alınırken hata: {e}")
+            print(f"Yükleme hatası ({url}): {e}")
             return None
-    
-    def get_episode_video_url(self, episode_url):
+
+    def load_links(self, data):
         try:
-            response = self.session.get(episode_url, headers={'Referer': f'{self.main_url}/'})
-            soup = BeautifulSoup(response.text, 'html.parser')
-            
-            # Script içindeki JSON verisini bul
-            script_content = None
-            scripts = soup.select('script')
-            
+            response = self.session.get(data, headers={"Referer": self.main_url + "/"})
+            response.raise_for_status()
+            soup = BeautifulSoup(response.text, "html.parser")
+
+            # Script'leri tara
+            scripts = soup.select("script")
+            script_data = None
             for script in scripts:
-                if script.string and ('contentUrl' in script.string or 'embed' in script.string):
-                    script_content = script.string
-                    break
-            
-            if not script_content:
-                # Iframe içinde arayalım
-                iframe = soup.select_one('iframe')
-                if iframe and iframe.get('src'):
-                    return iframe.get('src')
+                if script.string and "application/ld+json" in str(script):
+                    try:
+                        content_json = json.loads(script.string.strip())
+                        if "contentUrl" in content_json:
+                            script_data = content_json
+                            break
+                    except json.JSONDecodeError as e:
+                        print(f"JSON parse hatası ({data}): {e}")
+                        continue
+
+            if not script_data:
+                print(f"JSON script bulunamadı: {data}")
                 return None
-            
-            # JSON verisini çıkar
-            json_match = re.search(r'({.*})', script_content)
-            if json_match:
-                try:
-                    json_data = json.loads(json_match.group(1))
-                    content_url = json_data.get('contentUrl', '')
-                    if content_url:
-                        return content_url
-                except:
-                    pass
-            
-            # Direkt embed linki arayalım
-            embed_match = re.search(r'https?://[^\s"\']+\.(mp4|m3u8)[^\s"\']*', script_content)
-            if embed_match:
-                return embed_match.group(0)
-            
-            return None
-            
+
+            content_url = script_data.get("contentUrl", "")
+            if not content_url:
+                print(f"contentUrl bulunamadı: {data}")
+                return None
+
+            # Eğer contentUrl doğrudan embed linkiyse
+            if "embed" in content_url:
+                return content_url
+            else:
+                print(f"Embed linki bulunamadı: {content_url}")
+                return None
         except Exception as e:
-            print(f"Video URL alınırken hata: {e}")
+            print(f"load_links hatası ({data}): {e}")
             return None
-    
-    def generate_html(self, series_data, output_file='gom.html'):
-        # HTML şablonu
-        html_template = '''<!DOCTYPE html>
+
+def generate_html(diziler):
+    html_template = """
+<!DOCTYPE html>
 <html lang="tr">
 <head>
     <title>TITAN TV YERLİ VOD</title>
@@ -194,6 +161,7 @@ class DiziGomScraper:
             -moz-user-select: -moz-none;
             -khtml-user-select: none;
             -webkit-user-select: none;
+            -o-user-select: none;
             -o-user-select: none;
             -ms-user-select: none;
             user-select: none;
@@ -414,15 +382,6 @@ class DiziGomScraper:
             top: 0;
             left: 0;
         }
-        .season-selector {
-            background: #572aa7;
-            color: white;
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 5px;
-            cursor: pointer;
-            text-align: center;
-        }
         @media(max-width:900px) {
             .filmpanel {
                 width: 17%;
@@ -464,12 +423,12 @@ class DiziGomScraper:
 
     <div class="filmpaneldis">
         <div class="baslik">YERLİ DİZİLER VOD BÖLÜM</div>
-        ${SERIES_LIST}
+        
+        {dizi_panelleri}
     </div>
 
     <div id="bolumler" class="bolum-container hidden">
         <div id="geriBtn" class="geri-btn" onclick="geriDon()">Geri</div>
-        <div id="seasonSelector" style="display: none;"></div>
         <div id="bolumListesi" class="filmpaneldis"></div>
     </div>
 
@@ -479,58 +438,17 @@ class DiziGomScraper:
     </div>
 
     <script>
-        var diziler = ${DIZILER_JSON};
-        
+        var diziler = {dizi_json};
+
         let currentScreen = 'anaSayfa';
-        let currentDiziID = null;
 
         function showBolumler(diziID) {
-            currentDiziID = diziID;
             sessionStorage.setItem('currentDiziID', diziID);
             var listContainer = document.getElementById("bolumListesi");
-            var seasonSelector = document.getElementById("seasonSelector");
             listContainer.innerHTML = "";
-            seasonSelector.innerHTML = "";
             
             if (diziler[diziID]) {
-                // Sezon seçiciyi oluştur
-                const seasons = Object.keys(diziler[diziID].seasons);
-                if (seasons.length > 1) {
-                    seasonSelector.style.display = 'block';
-                    seasonSelector.innerHTML = '<div style="color: white; margin-bottom: 10px;">Sezon Seçin:</div>';
-                    
-                    seasons.forEach(season => {
-                        const seasonBtn = document.createElement('div');
-                        seasonBtn.className = 'season-selector';
-                        seasonBtn.textContent = `Sezon ${season}`;
-                        seasonBtn.onclick = function() {
-                            showSeasonEpisodes(diziID, season);
-                        };
-                        seasonSelector.appendChild(seasonBtn);
-                    });
-                    
-                    // İlk sezonu göster
-                    showSeasonEpisodes(diziID, seasons[0]);
-                } else if (seasons.length === 1) {
-                    seasonSelector.style.display = 'none';
-                    showSeasonEpisodes(diziID, seasons[0]);
-                }
-            } else {
-                listContainer.innerHTML = "<p>Bu dizi için bölüm bulunamadı.</p>";
-            }
-            
-            document.querySelector(".filmpaneldis").classList.add("hidden");
-            document.getElementById("bolumler").classList.remove("hidden");
-            document.getElementById("geriBtn").style.display = "block";
-            currentScreen = 'bolumler';
-        }
-
-        function showSeasonEpisodes(diziID, season) {
-            var listContainer = document.getElementById("bolumListesi");
-            listContainer.innerHTML = "";
-            
-            if (diziler[diziID] && diziler[diziID].seasons[season]) {
-                diziler[diziID].seasons[season].forEach(function(bolum) {
+                diziler[diziID].bolumler.forEach(function(bolum) {
                     var item = document.createElement("div");
                     item.className = "filmpanel";
                     item.innerHTML = `
@@ -544,7 +462,14 @@ class DiziGomScraper:
                     };
                     listContainer.appendChild(item);
                 });
+            } else {
+                listContainer.innerHTML = "<p>Bu dizi için bölüm bulunamadı.</p>";
             }
+            
+            document.querySelector(".filmpaneldis").classList.add("hidden");
+            document.getElementById("bolumler").classList.remove("hidden");
+            document.getElementById("geriBtn").style.display = "block";
+            currentScreen = 'bolumler';
         }
 
         function showPlayer(videoUrl) {
@@ -578,9 +503,9 @@ class DiziGomScraper:
         }
 
         function checkInitialState() {
-            var savedDiziID = sessionStorage.getItem('currentDiziID');
-            if (savedDiziID) {
-                showBolumler(savedDiziID);
+            var currentDiziID = sessionStorage.getItem('currentDiziID');
+            if (currentDiziID) {
+                showBolumler(currentDiziID);
             } else {
                 currentScreen = 'anaSayfa';
                 document.querySelector(".filmpaneldis").classList.remove("hidden");
@@ -617,103 +542,68 @@ class DiziGomScraper:
         }
     </script>
 </body>
-</html>'''
-        
-        # Dizileri HTML formatına dönüştür
-        series_html = ""
-        for i, (series_id, series_info) in enumerate(series_data.items(), 1):
-            series_html += f'''
-            <div class="filmpanel" onclick="showBolumler('{i}')">
-                <div class="filmresim"><img src="{series_info['resim']}"></div>
-                <div class="filmisimpanel">
-                    <div class="filmisim">{series_info['isim']}</div>
-                </div>
-            </div>'''
-        
-        # JSON verisini hazırla
-        diziler_json = {}
-        for i, (series_id, series_info) in enumerate(series_data.items(), 1):
-            diziler_json[str(i)] = {
-                "resim": series_info['resim'],
-                "seasons": series_info['seasons']
-            }
-        
-        # HTML'i oluştur ve kaydet
-        html_content = html_template\
-            .replace('${SERIES_LIST}', series_html)\
-            .replace('${DIZILER_JSON}', json.dumps(diziler_json, ensure_ascii=False))
-        
-        with open(output_file, 'w', encoding='utf-8') as f:
-            f.write(html_content)
-        
-        print(f"HTML dosyası oluşturuldu: {output_file}")
-        return output_file
+</html>
+    """
 
-def main():
-    scraper = DiziGomScraper()
-    
-    # Sadece Aile kategorisinden tek bir dizi çek
-    all_series = {}
-    
-    print("Aile kategorisinden tek dizi çekiliyor...")
-    
-    # Aile kategorisinden ilk diziyi al
-    series = scraper.scrape_single_series()
-    if not series:
-        print("Aile kategorisinde dizi bulunamadı!")
-        return
-    
-    print(f"Dizi bulundu: {series['title']}")
-    
-    # Dizi detaylarını al
-    series_details = scraper.get_series_details(series['url'])
-    if not series_details or not series_details.get('seasons'):
-        print("Dizi detayları alınamadı veya bölüm bulunamadı.")
-        return
-    
-    # Tüm sezon ve bölümlerin video linklerini al (sadece ilk 3 bölüm test için)
-    seasons_with_episodes = {}
-    
-    for season_num, episodes in series_details['seasons'].items():
-        print(f"  Sezon {season_num} işleniyor...")
-        episodes_with_links = []
-        
-        for episode in episodes[:3]:  # Sadece ilk 3 bölümü çek (test için)
-            print(f"    {episode['title']} bölümü işleniyor...")
-            video_url = scraper.get_episode_video_url(episode['url'])
-            
-            if video_url:
-                episodes_with_links.append({
-                    'ad': episode['title'],
-                    'link': video_url
-                })
-                print(f"      Video linki bulundu: {video_url}")
-            else:
-                print(f"      Video linki bulunamadı")
-            
-            time.sleep(1)  # Sunucu yükünü azaltmak için
-        
-        if episodes_with_links:
-            seasons_with_episodes[season_num] = episodes_with_links
-    
-    if seasons_with_episodes:
-        series_id = "series_1"
-        all_series[series_id] = {
-            'isim': series_details['title'],
-            'resim': series_details['poster'] or series['poster'],
-            'seasons': seasons_with_episodes
-        }
-        
-        print(f"Toplam {len(seasons_with_episodes)} sezon eklendi.")
-        for season_num, episodes in seasons_with_episodes.items():
-            print(f"  Sezon {season_num}: {len(episodes)} bölüm")
-    else:
-        print("Hiç bölüm bulunamadı!")
-        return
-    
-    # HTML oluştur
-    scraper.generate_html(all_series, 'gom.html')
-    print("Test işlemi tamamlandı! HTML dosyası oluşturuldu.")
+    dizi_json = {}
+    dizi_panelleri = ""
+    dizi_id = 1
+
+    dizi_scraper = DiziGom()
+    categories = list(dizi_scraper.main_page_urls.keys())
+    all_diziler = []
+    for category in categories:
+        all_diziler.extend(dizi_scraper.get_main_page(page=1, category=category))
+
+    for dizi in all_diziler:
+        dizi_data = dizi_scraper.load(dizi['url'])
+        if dizi_data:
+            bolumler = []
+            for episode in dizi_data['episodes']:
+                embed_link = dizi_scraper.load_links(episode['url'])
+                if embed_link:
+                    bolumler.append({
+                        "ad": f"{dizi_data['title']} - S{episode['season']}E{episode['episode']} {episode['name'] or ''}",
+                        "link": embed_link
+                    })
+            if bolumler:
+                dizi_json[str(dizi_id)] = {
+                    "resim": dizi_data['poster'] or dizi['poster'],
+                    "bolumler": bolumler
+                }
+                dizi_panelleri += f"""
+                    <div class="filmpanel" onclick="showBolumler('{dizi_id}')">
+                        <div class="filmresim"><img src="{dizi_data['poster'] or dizi['poster']}"></div>
+                        <div class="filmisimpanel">
+                            <div class="filmisim">{dizi_data['title']}</div>
+                        </div>
+                    </div>
+                """
+                dizi_id += 1
+
+    html = html_template.format(dizi_panelleri=dizi_panelleri, dizi_json=json.dumps(dizi_json, ensure_ascii=False))
+
+    with open("gom.html", "w", encoding="utf-8") as f:
+        f.write(html)
+    print("gom.html oluşturuldu.")
 
 if __name__ == "__main__":
-    main()
+    # GitHub Actions ile çalışıp çalışmadığını kontrol et
+    is_github_action = os.getenv("GITHUB_ACTIONS") == "true"
+
+    # Dizi verilerini topla ve gom.html oluştur
+    generate_html([])
+
+    # Eğer GitHub Actions içindeyse, gom.html'yi repoya kaydet
+    if is_github_action:
+        try:
+            # GitHub Actions ortamında dosya kaydetme
+            import subprocess
+            subprocess.run(["git", "config", "--global", "user.email", "action@github.com"])
+            subprocess.run(["git", "config", "--global", "user.name", "GitHub Action"])
+            subprocess.run(["git", "add", "gom.html"])
+            subprocess.run(["git", "commit", "-m", "Update gom.html with latest series data"])
+            subprocess.run(["git", "push"])
+            print("gom.html GitHub repoya kaydedildi.")
+        except Exception as e:
+            print(f"GitHub repoya kaydetme hatası: {e}")
