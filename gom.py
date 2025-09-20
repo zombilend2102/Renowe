@@ -14,10 +14,29 @@ class DiziGom:
         self.main_url = "https://dizigom1.de"
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"})
+        # main_page_urls eklendi
+        self.main_page_urls = {
+            "Aile": f"{self.main_url}/tur/aile/",
+            "Aksiyon": f"{self.main_url}/tur/aksiyon/",
+            "Animasyon": f"{self.main_url}/tur/animasyon/",
+            "Belgesel": f"{self.main_url}/tur/belgesel/",
+            "Bilim Kurgu": f"{self.main_url}/tur/bilim-kurgu/",
+            "Dram": f"{self.main_url}/tur/dram/",
+            "Fantastik": f"{self.main_url}/tur/fantastik/",
+            "Gerilim": f"{self.main_url}/tur/gerilim/",
+            "Komedi": f"{self.main_url}/tur/komedi/",
+            "Korku": f"{self.main_url}/tur/korku/",
+            "Macera": f"{self.main_url}/tur/macera/",
+            "Polisiye": f"{self.main_url}/tur/polisiye/",
+            "Romantik": f"{self.main_url}/tur/romantik/",
+            "Savaş": f"{self.main_url}/tur/savas/",
+            "Suç": f"{self.main_url}/tur/suc/",
+            "Tarih": f"{self.main_url}/tur/tarih/",
+        }
 
     def get_main_page(self, page=1, category="Dram"):
         search_url = "/wp-admin/admin-ajax.php"
-        url = f"{self.main_url}/tur/{category.lower()}/#p={page}"
+        url = f"{self.main_page_urls[category]}#p={page}"
         try:
             response = self.session.get(url)
             response.raise_for_status()
@@ -161,7 +180,6 @@ def generate_html(diziler):
             -moz-user-select: -moz-none;
             -khtml-user-select: none;
             -webkit-user-select: none;
-            -o-user-select: none;
             -o-user-select: none;
             -ms-user-select: none;
             user-select: none;
