@@ -1,16 +1,22 @@
-name: DiziGom Scraper Test
+name: DiziGom Scraper
 
 on:
-  workflow_dispatch:  # Sadece manuel çalıştırma
+  schedule:
+    - cron: '0 */12 * * *'  # Her 12 saatte bir
+  workflow_dispatch:  # Manuel çalıştırma için
+  push:
+    branches: [ main ]
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-      
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
@@ -21,11 +27,19 @@ jobs:
         python -m pip install --upgrade pip
         pip install requests beautifulsoup4
         
-    - name: Run test scraper
+    - name: Run scraper
       run: python gom.py
       
-    - name: Upload HTML as artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: gom-html
-        path: gom.html
+    - name: Commit and push changes
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        
+        # Değişiklikleri kontrol et
+        if git diff --quiet; then
+          echo "Değişiklik yok, commit atlanacak."
+        else
+          git add gom.html
+          git commit -m "📦 Gom.html güncellendi - $(date +'%Y-%m-%d %H:%M')"
+          git push
+        fi
