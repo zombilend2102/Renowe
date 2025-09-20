@@ -1,6 +1,7 @@
 import requests
 import json
 import re
+import os
 import time
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
@@ -587,7 +588,6 @@ class DiziGomScraper:
                 document.getElementById("playerpanel").style.display = "none";
                 document.getElementById("geriBtn").style.display = "none";
             }
-            return false;
         }
 
         document.addEventListener('DOMContentLoaded', checkInitialState);
