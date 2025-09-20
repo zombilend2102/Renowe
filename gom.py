@@ -1,144 +1,17 @@
 import requests
 import json
 import re
-import os
-from bs4 import BeautifulSoup
-from urllib.parse import quote, urljoin
 import time
-from datetime import datetime
+from bs4 import BeautifulSoup
+from urllib.parse import urljoin, quote
 
 class DiziGomScraper:
     def __init__(self):
-        self.main_url = "https://dizigom1.de"
+        self.main_url = "https://dizigom1.plus"
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         })
-    
-    def get_main_categories(self):
-        categories = {
-            f"{self.main_url}/tur/aile/": "Aile",
-            f"{self.main_url}/tur/aksiyon/": "Aksiyon",
-            f"{self.main_url}/tur/animasyon/": "Animasyon",
-            f"{self.main_url}/tur/belgesel/": "Belgesel",
-            f"{self.main_url}/tur/bilim-kurgu/": "Bilim Kurgu",
-            f"{self.main_url}/tur/dram/": "Dram",
-            f"{self.main_url}/tur/fantastik/": "Fantastik",
-            f"{self.main_url}/tur/gerilim/": "Gerilim",
-            f"{self.main_url}/tur/komedi/": "Komedi",
-            f"{self.main_url}/tur/korku/": "Korku",
-            f"{self.main_url}/tur/macera/": "Macera",
-            f"{self.main_url}/tur/polisiye/": "Polisiye",
-            f"{self.main_url}/tur/romantik/": "Romantik",
-            f"{self.main_url}/tur/savas/": "Savaş",
-            f"{self.main_url}/tur/suc/": "Suç",
-            f"{self.main_url}/tur/tarih/": "Tarih",
-        }
-        return categories
-    
-    def scrape_series_from_category(self, category_url, max_pages=3):
-        series_list = []
-        
-        for page in range(1, max_pages + 1):
-            try:
-                if page == 1:
-                    response = self.session.get(f"{category_url}")
-                else:
-                    # AJAX isteği simüle etmek için
-                    form_data = {
-                        "action": "dizigom_search_action",
-                        "formData": "category=your_category",
-                        "paged": str(page),
-                        "_wpnonce": "18a90a7287"
-                    }
-                    response = self.session.post(
-                        f"{self.main_url}/wp-admin/admin-ajax.php",
-                        data=form_data,
-                        headers={
-                            "X-Requested-With": "XMLHttpRequest",
-                            "Referer": category_url
-                        }
-                    )
-                
-                soup = BeautifulSoup(response.text, 'html.parser')
-                
-                # Dizi kutularını bul
-                series_boxes = soup.select('div.episode-box')
-                
-                for box in series_boxes:
-                    try:
-                        title_elem = box.select_one('div.serie-name a')
-                        if not title_elem:
-                            continue
-                            
-                        title = title_elem.text.strip()
-                        href = title_elem.get('href')
-                        if href and not href.startswith('http'):
-                            href = urljoin(self.main_url, href)
-                            
-                        poster_elem = box.select_one('img')
-                        poster_url = poster_elem.get('src') if poster_elem else None
-                        if poster_url and not poster_url.startswith('http'):
-                            poster_url = urljoin(self.main_url, poster_url)
-                            
-                        score_elem = box.select_one('div.episode-date')
-                        score = score_elem.text.replace('IMDb:', '').strip() if score_elem else None
-                        
-                        series_list.append({
-                            'title': title,
-                            'url': href,
-                            'poster': poster_url,
-                            'score': score
-                        })
-                    except Exception as e:
-                        print(f"Error parsing series box: {e}")
-                        continue
-                        
-            except Exception as e:
-                print(f"Error scraping page {page}: {e}")
-                continue
-                
-        return series_list
-    
-    def search_series(self, query):
-        search_url = f"{self.main_url}/?s={quote(query)}"
-        series_list = []
-        
-        try:
-            response = self.session.get(search_url)
-            soup = BeautifulSoup(response.text, 'html.parser')
-            
-            series_items = soup.select('div.single-item')
-            
-            for item in series_items:
-                try:
-                    title_elem = item.select_one('div.categorytitle a')
-                    if not title_elem:
-                        continue
-                        
-                    title = title_elem.text.strip()
-                    href = title_elem.get('href')
-                    if href and not href.startswith('http'):
-                        href = urljoin(self.main_url, href)
-                        
-                    poster_elem = item.select_one('img')
-                    poster_url = poster_elem.get('src') if poster_elem else None
-                    if poster_url and not poster_url.startswith('http'):
-                        poster_url = urljoin(self.main_url, poster_url)
-                        
-                    series_list.append({
-                        'title': title,
-                        'url': href,
-                        'poster': poster_url
-                    })
-                except Exception as e:
-                    print(f"Error parsing search result: {e}")
-                    continue
-                    
-        except Exception as e:
-            print(f"Error searching: {e}")
-            
-        return series_list
     
     def get_series_details(self, series_url):
         try:
@@ -158,10 +31,6 @@ class DiziGomScraper:
                 if poster_url and not poster_url.startswith('http'):
                     poster_url = urljoin(self.main_url, poster_url)
             
-            # Açıklama
-            desc_elem = soup.select_one('div.serieDescription p')
-            description = desc_elem.text.strip() if desc_elem else None
-            
             # Tüm sezonları bul
             seasons = {}
             season_containers = soup.select('div.bolumust')
@@ -178,11 +47,11 @@ class DiziGomScraper:
                     ep_title = ep_title_elem.text.strip() if ep_title_elem else ''
                     
                     # Sezon ve bölüm numaralarını çıkar
-                    season_num = None
+                    season_num = 1  # Varsayılan olarak 1. sezon
                     episode_num = None
                     
                     if ep_title:
-                        # Sezon ve bölüm bilgilerini daha iyi parse etmek için
+                        # Sezon ve bölüm bilgilerini parse etmek için
                         season_match = re.search(r'Sezon\s*(\d+)', ep_title, re.IGNORECASE)
                         episode_match = re.search(r'Bölüm\s*(\d+)', ep_title, re.IGNORECASE)
                         
@@ -190,10 +59,6 @@ class DiziGomScraper:
                             season_num = int(season_match.group(1))
                         if episode_match:
                             episode_num = int(episode_match.group(1))
-                    
-                    # Sezon numarası yoksa varsayılan olarak 1. sezon
-                    if season_num is None:
-                        season_num = 1
                     
                     # Sezon için liste yoksa oluştur
                     if season_num not in seasons:
@@ -207,18 +72,17 @@ class DiziGomScraper:
                         'title': ep_title
                     })
                 except Exception as e:
-                    print(f"Error parsing episode: {e}")
+                    print(f"Bölüm ayrıştırma hatası: {e}")
                     continue
             
             return {
                 'title': title,
                 'poster': poster_url,
-                'description': description,
                 'seasons': seasons
             }
             
         except Exception as e:
-            print(f"Error getting series details: {e}")
+            print(f"Dizi detayları alınırken hata: {e}")
             return None
     
     def get_episode_video_url(self, episode_url):
@@ -273,7 +137,7 @@ class DiziGomScraper:
             return None
             
         except Exception as e:
-            print(f"Error getting video URL: {e}")
+            print(f"Video URL alınırken hata: {e}")
             return None
     
     def generate_html(self, series_data, output_file='gom.html'):
@@ -750,59 +614,55 @@ class DiziGomScraper:
 def main():
     scraper = DiziGomScraper()
     
-    # Tüm kategorilerden dizileri çek
+    # Sadece bir dizi çekmek için
     all_series = {}
-    categories = scraper.get_main_categories()
     
-    print("Diziler çekiliyor...")
+    # Test için sabit bir dizi URL'si (örnek olarak)
+    test_series_url = "https://dizigom1.plus/dizi/cukur/"  # Örnek URL, değiştirilebilir
     
-    for category_url, category_name in list(categories.items())[:3]:  # İlk 3 kategori
-        print(f"{category_name} kategorisi işleniyor...")
-        series_list = scraper.scrape_series_from_category(category_url, max_pages=2)
+    print("Test için tek dizi çekiliyor...")
+    print(f"Dizi URL: {test_series_url}")
+    
+    # Dizi detaylarını al
+    series_details = scraper.get_series_details(test_series_url)
+    if not series_details or not series_details.get('seasons'):
+        print("Dizi detayları alınamadı veya bölüm bulunamadı.")
+        return
+    
+    # Tüm sezon ve bölümlerin video linklerini al
+    seasons_with_episodes = {}
+    
+    for season_num, episodes in series_details['seasons'].items():
+        print(f"    Sezon {season_num} işleniyor...")
+        episodes_with_links = []
         
-        for series in series_list[:5]:  # Her kategoriden ilk 5 dizi
-            print(f"  {series['title']} işleniyor...")
+        for episode in episodes[:3]:  # Sadece ilk 3 bölümü çek (test için)
+            print(f"      {episode['title']} bölümü işleniyor...")
+            video_url = scraper.get_episode_video_url(episode['url'])
             
-            # Dizi detaylarını al
-            series_details = scraper.get_series_details(series['url'])
-            if not series_details or not series_details.get('seasons'):
-                continue
-            
-            # Tüm sezon ve bölümlerin video linklerini al
-            seasons_with_episodes = {}
-            
-            for season_num, episodes in series_details['seasons'].items():
-                print(f"    Sezon {season_num} işleniyor...")
-                episodes_with_links = []
-                
-                for episode in episodes:
-                    print(f"      {episode['title']} bölümü işleniyor...")
-                    video_url = scraper.get_episode_video_url(episode['url'])
-                    
-                    if video_url:
-                        episodes_with_links.append({
-                            'ad': episode['title'],
-                            'link': video_url
-                        })
-                    time.sleep(1)  # Sunucu yükünü azaltmak için
-                
-                if episodes_with_links:
-                    seasons_with_episodes[season_num] = episodes_with_links
-            
-            if seasons_with_episodes:
-                series_id = f"series_{len(all_series) + 1}"
-                all_series[series_id] = {
-                    'isim': series_details['title'],
-                    'resim': series_details['poster'] or series['poster'],
-                    'seasons': seasons_with_episodes
-                }
-            
-            time.sleep(2)  # Sunucu yükünü azaltmak için
+            if video_url:
+                episodes_with_links.append({
+                    'ad': episode['title'],
+                    'link': video_url
+                })
+            time.sleep(1)  # Sunucu yükünü azaltmak için
+        
+        if episodes_with_links:
+            seasons_with_episodes[season_num] = episodes_with_links
+    
+    if seasons_with_episodes:
+        series_id = "series_1"
+        all_series[series_id] = {
+            'isim': series_details['title'],
+            'resim': series_details['poster'],
+            'seasons': seasons_with_episodes
+        }
     
     # HTML oluştur
     if all_series:
         scraper.generate_html(all_series, 'gom.html')
-        print("İşlem tamamlandı! Toplam {} dizi eklendi.".format(len(all_series)))
+        print("Test işlemi tamamlandı! 1 dizi eklendi.")
+        print(f"Toplam {sum(len(seasons) for seasons in seasons_with_episodes.values())} bölüm eklendi.")
     else:
         print("Hiç dizi bulunamadı!")
 
