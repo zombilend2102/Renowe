@@ -8,7 +8,7 @@ import time
 
 class DiziGom:
     def __init__(self):
-        self.main_url = "https://dizigom1.de"
+        self.main_url = "https://dizipod.com"
         self.session = requests.Session()
         self.kategoriler = {
             f"{self.main_url}/tur/aile/": "Aile",
