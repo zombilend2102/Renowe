@@ -3,7 +3,7 @@ import re
 import os
 
 # Proxy prefix
-PROXY = "http://vipnet.hr.proxy.flowly.cz/index.php?"
+PROXY = ""
 
 # Domain aralığı (25–99)
 active_domain = None
