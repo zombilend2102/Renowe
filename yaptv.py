@@ -1,7 +1,7 @@
 import requests
 
 def find_active_domain():
-    for num in range(112, 200):
+    for num in range(114, 200):
         domain = f"https://betyaptv{num}.live"
         try:
             response = requests.get(domain, timeout=5)
