@@ -9,7 +9,7 @@ from datetime import datetime
 
 class Dizipall8Scraper:
     def __init__(self):
-        self.base_url = "https://dizipall10.com"
+        self.base_url = "https://dizipall11.com"
         self.movies_data = {}
         self.session = requests.Session()
         self.session.headers.update({
