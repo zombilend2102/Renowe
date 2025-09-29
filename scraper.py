@@ -1,14 +1,10 @@
-import requests
+import cloudscraper
 from bs4 import BeautifulSoup
 
 def get_embed_link(episode_url: str) -> str:
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                      "AppleWebKit/537.36 (KHTML, like Gecko) "
-                      "Chrome/124.0.0.0 Safari/537.36"
-    }
+    scraper = cloudscraper.create_scraper(browser={"browser": "chrome", "platform": "windows", "mobile": False})
     
-    response = requests.get(episode_url, headers=headers, timeout=15)
+    response = scraper.get(episode_url, timeout=20)
     response.raise_for_status()
 
     soup = BeautifulSoup(response.text, "html.parser")
