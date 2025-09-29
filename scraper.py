@@ -6,16 +6,20 @@ async def get_embed_link(episode_url: str) -> str:
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page()
-        
-        # Cloudflare challenge atlatmak için bekleme
+
+        # Sayfaya git
         await page.goto(episode_url, timeout=60000)
-        await page.wait_for_timeout(8000)  # 8 saniye bekle (doğrulama için)
-        
+
+        # Cloudflare doğrulama + iframe yüklenmesi için bekle
+        await page.wait_for_selector("div#vast_new iframe", timeout=20000)
+
+        # Kaynağı al
         html = await page.content()
         await browser.close()
 
+        # HTML parse et
         soup = BeautifulSoup(html, "html.parser")
-        iframe = soup.find("div", {"id": "vast_new"}).find("iframe")
+        iframe = soup.select_one("div#vast_new iframe")
         return iframe["src"] if iframe else None
 
 if __name__ == "__main__":
