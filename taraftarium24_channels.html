@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TITAN TV</title>
+    <script src="https://cdn.jsdelivr.net/npm/clappr@latest/dist/clappr.min.js"></script>
+    <style>
+        *:not(input):not(textarea) {
+            -moz-user-select: -moz-none;
+            -khtml-user-select: none;
+            -webkit-user-select: none;
+            -o-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000000;
+            color: white;
+            font-family: sans-serif;
+            font-weight: 500;
+            -webkit-tap-highlight-color: transparent;
+            line-height: 20px;
+            -webkit-text-size-adjust: 100%;
+            text-decoration: none;
+        }
+
+        a {
+            text-decoration: none;
+            color: white;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background-color: rgba(23, 43, 67, 0.8);
+            backdrop-filter: blur(5px);
+            border-bottom: 1px solid #000;
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 99999;
+        }
+
+        .logo {
+            width: 55px;
+            height: 55px;
+            margin-right: 5px;
+        }
+
+        .title {
+            font-size: 16px;
+            margin-right: auto;
+            color: #e1e1e1;
+        }
+
+        .subtitle {
+            font-size: 16px;
+        }
+
+        .channel-list {
+            padding: 0;
+            margin: 0;
+            margin-top: 76px;
+        }
+
+        .channel-item {
+            display: flex;
+            align-items: center;
+            background-color: #16202a;
+            transition: background-color 0.3s;
+            cursor: pointer;
+            border-bottom: 2px solid #9400d3;
+        }
+
+        .channel-item:last-child {
+            border-bottom: none;
+        }
+
+        .channel-item a {
+            text-decoration: none;
+            color: #e1e1e1;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            width: 100%;
+        }
+
+        .channel-item img {
+            width: 55px;
+            height: 55px;
+            border-radius: 0px;
+            margin-right: 10px;
+        }
+
+        .channel-item:hover {
+            background-color: rgba(136, 141, 147, 0.9);
+            outline: none;
+        }
+
+        #player-container {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            z-index: 100000;
+        }
+
+        #player {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img src="https://i.hizliresim.com/t75soiq.png" alt="Logo" class="logo">
+        <div class="title">
+            TITAN TV
+            <div class="subtitle"></div>
+        </div>
+    </div>
+    <div class="channel-list">
+        <div class='channel-item' data-channel='Bein 1' data-href='https://amp-besn.taraftar17120.workers.dev/master.m3u8'>
+            <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Bein 1</span></a>
+        </div>
+        <div class='channel-item' data-channel='Bein 2' data-href='https://amp-besn2.taraftar17120.workers.dev/master.m3u8'>
+            <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Bein 2</span></a>
+        </div>
+        <div class='channel-item' data-channel='Bein 3' data-href='https://amp-besn.taraftar17120.workers.dev/master.m3u8'>
+            <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Bein 3</span></a>
+        </div>
+        <div class='channel-item' data-channel='Bein 4' data-href='https://amp-besn4.taraftar17120.workers.dev/master.m3u8'>
+            <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Bein 4</span></a>
+        </div>
+        <div class='channel-item' data-channel='Bein Max 1' data-href='https://amp-mx1.taraftar17120.workers.dev/master.m3u8'>
+            <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Bein Max 1</span></a>
+        </div>
+        <div class='channel-item' data-channel='Bein Max 2' data-href='https://amp-mx2.taraftar17120.workers.dev/master.m3u8'>
+            <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Bein Max 2</span></a>
+        </div>
+        <div class='channel-item' data-channel='S-Sport 2' data-href='https://amp-s2.taraftar17120.workers.dev/master.m3u8'>
+            <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>S-Sport 2</span></a>
+        </div>
+        <div class='channel-item' data-channel='Tivibu 1' data-href='https://amp-tvb1.taraftar17120.workers.dev/master.m3u8'>
+            <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Tivibu 1</span></a>
+        </div>
+        <div class='channel-item' data-channel='Tivibu 2' data-href='https://amp-tvb2.taraftar17120.workers.dev/master.m3u8'>
+            <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Tivibu 2</span></a>
+        </div>
+        <div class='channel-item' data-channel='Tivibu 3' data-href='https://amp-tvb3.taraftar17120.workers.dev/master.m3u8'>
+            <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Tivibu 3</span></a>
+        </div>
+        <div class='channel-item' data-channel='Tivibu 4' data-href='https://amp-tvb4.taraftar17120.workers.dev/master.m3u8'>
+            <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>Tivibu 4</span></a>
+        </div>
+        <div class='channel-item' data-channel='S-Sport 1' data-href='https://amp-s1.taraftar17120.workers.dev/master.m3u8'>
+            <a><img src='https://i.hizliresim.com/t75soiq.png' alt='Logo'><span>S-Sport 1</span></a>
+        </div>
+    </div>
+
+    <div id="player-container">
+        <div id="player"></div>
+    </div>
+
+    <script>
+        let player = null;
+        document.querySelectorAll('.channel-item').forEach(item => {
+            item.addEventListener('click', function() {
+                const channelName = this.getAttribute('data-channel');
+                const channelUrl = this.getAttribute('data-href');
+                
+                document.querySelector('.subtitle').textContent = channelName;
+                document.getElementById('player-container').style.display = 'block';
+                
+                if (player) {
+                    player.destroy();
+                }
+                
+                player = new Clappr.Player({
+                    source: channelUrl,
+                    parentId: '#player',
+                    autoPlay: false,
+                    mute: false,
+                    height: '100%',
+                    width: '100%'
+                });
+            });
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                if (player) {
+                    player.destroy();
+                    player = null;
+                }
+                document.getElementById('player-container').style.display = 'none';
+                document.querySelector('.subtitle').textContent = '';
+            }
+        });
+    </script>
+</body>
+</html>
