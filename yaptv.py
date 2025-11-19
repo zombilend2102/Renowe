@@ -3,17 +3,19 @@ import requests
 def find_active_domain():
     for num in range(132, 200):
         domain = f"https://betyaptv{num}.live"
+        test_url = f"{domain}/wp-content/themes/ikisifirbirdokuz/match-center.php?id=5062"
+        
         try:
-            response = requests.get(domain, timeout=5)
+            response = requests.get(test_url, timeout=5)
             if response.status_code == 200:
                 print(f"[AKTİF] {domain}")
                 return domain
             else:
                 print(f"[PASİF] {domain} (Status Code: {response.status_code})")
-        except requests.exceptions.RequestException:
-            print(f"[PASİF] {domain}")
-            pass
-    raise Exception("No active domain found between 112 and 199")
+        except requests.exceptions.RequestException as e:
+            print(f"[PASİF] {domain} (Hata: {e})")
+    
+    raise Exception("132-199 aralığında aktif domain bulunamadı")
 
 def generate_html(active_domain):
     channels = [
@@ -185,4 +187,4 @@ if __name__ == "__main__":
     html_content = generate_html(active_domain)
     with open('yaptv.html', 'w', encoding='utf-8') as f:
         f.write(html_content)
-    print("yaptv.html generated successfully.")
+    print("yaptv.html başarıyla oluşturuldu.")
