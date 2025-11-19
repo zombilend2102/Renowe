@@ -18,8 +18,8 @@ def check_domain_availability(domain):
     
     return False
 
-def find_real_active_domain():
-    """Gerçekten erişilebilir domain'i bul"""
+def find_highest_active_domain():
+    """En yüksek numaralı erişilebilir domain'i bul"""
     potential_domains = []
     
     # Önce tüm domain'leri tarıyoruz
@@ -37,13 +37,21 @@ def find_real_active_domain():
         except requests.exceptions.RequestException as e:
             print(f"[PASİF] {domain} - Hata: {e}")
     
-    # Potansiyel domain'leri detaylı kontrol et
-    print(f"\n{len(potential_domains)} potansiyel domain bulundu. Detaylı kontrol...")
+    if not potential_domains:
+        raise Exception("Hiç potansiyel domain bulunamadı")
     
+    # Potansiyel domain'leri numaraya göre sırala (büyükten küçüğe)
+    potential_domains.sort(reverse=True, key=lambda x: int(x.split('betyaptv')[1].split('.')[0]))
+    
+    print(f"\n{len(potential_domains)} potansiyel domain bulundu. En yüksek numaralıyı kontrol ediyorum...")
+    print(f"Sıralama: {potential_domains}")
+    
+    # En yüksek numaralıdan başlayarak kontrol et
     for domain in potential_domains:
         print(f"\nDetaylı kontrol: {domain}")
         if check_domain_availability(domain):
-            print(f"🎯 GERÇEK AKTİF DOMAIN: {domain}")
+            domain_num = domain.split('betyaptv')[1].split('.')[0]
+            print(f"🎯 EN YÜKSEK AKTİF DOMAIN: {domain} (No: {domain_num})")
             return domain
     
     raise Exception("Hiçbir domain erişilebilir değil")
@@ -90,7 +98,6 @@ def generate_html(active_domain):
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TITAN TV</title>
     <style>
-        /* CSS kodu aynı kalacak */
         *:not(input):not(textarea) {{
             -moz-user-select: -moz-none;
             -khtml-user-select: none;
@@ -215,7 +222,7 @@ def generate_html(active_domain):
     return html_template
 
 if __name__ == "__main__":
-    active_domain = find_real_active_domain()
+    active_domain = find_highest_active_domain()
     html_content = generate_html(active_domain)
     with open('yaptv.html', 'w', encoding='utf-8') as f:
         f.write(html_content)
