@@ -1,21 +1,52 @@
 import requests
 
-def find_active_domain():
-    for num in range(132, 200):
+def check_domain_availability(domain):
+    """Domain'in gerçekten erişilebilir olup olmadığını kontrol et"""
+    test_urls = [
+        f"{domain}/wp-content/themes/ikisifirbirdokuz/match-center.php?id=5062",
+        domain  # Ana sayfayı da kontrol et
+    ]
+    
+    for test_url in test_urls:
+        try:
+            response = requests.get(test_url, timeout=10)
+            if response.status_code == 200:
+                print(f"✓ {test_url} erişilebilir")
+                return True
+        except requests.exceptions.RequestException as e:
+            print(f"✗ {test_url} erişilemez: {e}")
+    
+    return False
+
+def find_real_active_domain():
+    """Gerçekten erişilebilir domain'i bul"""
+    potential_domains = []
+    
+    # Önce tüm domain'leri tarıyoruz
+    for num in range(132, 151):
         domain = f"https://betyaptv{num}.live"
         test_url = f"{domain}/wp-content/themes/ikisifirbirdokuz/match-center.php?id=5062"
         
         try:
             response = requests.get(test_url, timeout=5)
             if response.status_code == 200:
-                print(f"[AKTİF] {domain}")
-                return domain
+                print(f"[POTANSİYEL] {domain} - HTTP 200")
+                potential_domains.append(domain)
             else:
-                print(f"[PASİF] {domain} (Status Code: {response.status_code})")
+                print(f"[PASİF] {domain} - Status: {response.status_code}")
         except requests.exceptions.RequestException as e:
-            print(f"[PASİF] {domain} (Hata: {e})")
+            print(f"[PASİF] {domain} - Hata: {e}")
     
-    raise Exception("132-199 aralığında aktif domain bulunamadı")
+    # Potansiyel domain'leri detaylı kontrol et
+    print(f"\n{len(potential_domains)} potansiyel domain bulundu. Detaylı kontrol...")
+    
+    for domain in potential_domains:
+        print(f"\nDetaylı kontrol: {domain}")
+        if check_domain_availability(domain):
+            print(f"🎯 GERÇEK AKTİF DOMAIN: {domain}")
+            return domain
+    
+    raise Exception("Hiçbir domain erişilebilir değil")
 
 def generate_html(active_domain):
     channels = [
@@ -59,6 +90,7 @@ def generate_html(active_domain):
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TITAN TV</title>
     <style>
+        /* CSS kodu aynı kalacak */
         *:not(input):not(textarea) {{
             -moz-user-select: -moz-none;
             -khtml-user-select: none;
@@ -183,7 +215,7 @@ def generate_html(active_domain):
     return html_template
 
 if __name__ == "__main__":
-    active_domain = find_active_domain()
+    active_domain = find_real_active_domain()
     html_content = generate_html(active_domain)
     with open('yaptv.html', 'w', encoding='utf-8') as f:
         f.write(html_content)
