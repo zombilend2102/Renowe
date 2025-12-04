@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#000000">
-    <title>Ultimate Pro Player - AutoPlay</title>
+    <title>Ultimate Pro Player - Fast Mode</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.0"></script>
@@ -22,7 +22,6 @@
             user-select: none;
         }
 
-        /* --- VİDEO ALANI --- */
         #video-container {
             position: fixed; inset: 0;
             background: #000; z-index: 0;
@@ -42,20 +41,18 @@
             display: flex; flex-direction: column; justify-content: space-between;
             background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 25%, transparent 65%, rgba(0,0,0,0.95) 100%);
             opacity: 0; transition: opacity 0.3s ease;
-            pointer-events: none; /* Gizliyken tıklamayı engelleme */
+            pointer-events: none; 
         }
         #ui-layer.visible { opacity: 1; pointer-events: auto; }
 
-        /* ÜST BAR */
         .top-bar { padding: 20px; margin-top: env(safe-area-inset-top); color: white; pointer-events: none; }
         .channel-title { font-size: 20px; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.8); padding-left: 20px; }
 
-        /* ORTA KONTROLLER */
         .center-controls {
             position: absolute; top: 50%; left: 50%;
             transform: translate(-50%, -50%);
             display: flex; align-items: center; gap: 40px; color: white;
-            pointer-events: auto; /* Butonlara tıklanabilsin */
+            pointer-events: auto; 
         }
         .ctrl-btn { 
             cursor: pointer; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.6)); 
@@ -67,7 +64,6 @@
         .play-btn svg { width: 80px; height: 80px; }
         .skip-btn svg { width: 45px; height: 45px; opacity: 0.9; }
 
-        /* KUMANDA ODAKLANMA EFEKTİ */
         .focused {
             transform: scale(1.15);
             border-color: #ff5200 !important;
@@ -75,14 +71,12 @@
             box-shadow: 0 0 15px rgba(255, 82, 0, 0.5);
         }
 
-        /* ALT BÖLÜM */
         .bottom-section {
             padding: 20px; padding-bottom: calc(20px + env(safe-area-inset-bottom));
             display: flex; flex-direction: column; gap: 15px;
             pointer-events: auto;
         }
 
-        /* KANAL KARTLARI */
         #channel-carousel {
             display: flex; overflow-x: auto; gap: 15px; padding: 10px;
             scroll-behavior: smooth;
@@ -114,7 +108,6 @@
         .channel-card img { width: 40px; height: 40px; object-fit: contain; }
         .channel-card .c-name { font-size: 13px; color: white; font-weight: 600; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
-        /* ALT BİLGİ */
         .controls-row { display: flex; align-items: center; gap: 15px; color: white; padding: 0 10px; }
         .time-text { font-size: 14px; font-weight: 600; }
         
@@ -165,7 +158,6 @@
     </div>
 
     <script>
-        // --- DEĞİŞKENLER ---
         const video = document.getElementById('player');
         const uiLayer = document.getElementById('ui-layer');
         const carousel = document.getElementById('channel-carousel');
@@ -180,12 +172,10 @@
         let isStretched = false;
         let uiTimeout;
 
-        // --- NAVİGASYON MANTIĞI ---
         let focusArea = 'none'; 
         let focusedControlIndex = 1;
         let focusedChannelIndex = 0;
 
-        // --- 1. GENEL DOKUNMATİK / MOUSE YÖNETİMİ ---
         document.addEventListener('click', (e) => {
             if(e.target.closest('.ctrl-btn') || e.target.closest('.channel-card')) {
                 resetUITimer();
@@ -200,7 +190,6 @@
             }
         });
 
-        // --- 2. FONKSİYONLAR ---
         function togglePlay() {
             if (video.paused) { video.play(); iconPlay.classList.add('hidden'); iconPause.classList.remove('hidden'); }
             else { video.pause(); iconPlay.classList.remove('hidden'); iconPause.classList.add('hidden'); }
@@ -226,21 +215,48 @@
             titleEl.textContent = ch.name;
 
             if (hls) { hls.destroy(); hls = null; }
+            
             if (Hls.isSupported()) {
-                hls = new Hls();
+                // --- HIZLANDIRMA AYARLARI BURADA ---
+                var config = {
+                    startFragPrefetch: true,        // Başlangıç parçasını hemen çek
+                    enableWorker: true,             // Arka plan işçisini aç
+                    lowLatencyMode: true,           // Düşük gecikme modu
+                    backBufferLength: 30,
+                    maxMaxBufferLength: 10,         // Çok fazla tampon yapma, canlı yayın bu
+                    liveSyncDurationCount: 2,       // Canlı yayına daha yakın başla
+                };
+                
+                hls = new Hls(config);
                 hls.loadSource(ch.url);
                 hls.attachMedia(video);
                 hls.on(Hls.Events.MANIFEST_PARSED, () => {
                     video.play().catch(e => {
-                        console.log("Otomatik oynatma tarayıcı tarafından engellendi.");
+                        console.log("Oto oynatma bekleniyor...");
                     });
                 });
+                hls.on(Hls.Events.ERROR, function (event, data) {
+                     if (data.fatal) {
+                        switch (data.type) {
+                        case Hls.ErrorTypes.NETWORK_ERROR:
+                            console.log("Ağ hatası, yeniden deneniyor...");
+                            hls.startLoad();
+                            break;
+                        case Hls.ErrorTypes.MEDIA_ERROR:
+                            console.log("Medya hatası, kurtarılıyor...");
+                            hls.recoverMediaError();
+                            break;
+                        default:
+                            hls.destroy();
+                            break;
+                        }
+                    }
+                });
+
             } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
                 video.src = ch.url;
                 video.addEventListener('loadedmetadata', () => {
-                    video.play().catch(e => {
-                        console.log("Otomatik oynatma engellendi.");
-                    });
+                    video.play().catch(e => {});
                 });
             }
             iconPlay.classList.add('hidden'); iconPause.classList.remove('hidden');
@@ -302,7 +318,6 @@
             }
         }
 
-        // --- 3. KUMANDA (REMOTE) KONTROLLERİ ---
         document.addEventListener('keydown', (e) => {
             if (focusArea !== 'none') resetUITimer();
 
@@ -369,56 +384,9 @@
             }
         });
 
-        // --- VERİ ---
+        // --- VERİ ENJEKSİYONU ---
         const m3uList = `
-#EXTINF:-1 tvg-logo="https://i.hizliresim.com/lkl7u2r.png" group-title="TURKIYE DEATHLESS", beIN Sports 1
-http://palxlendimgaliba1010.mywire.org/proxy.php?url=https://eb9.04bf112a615942b41.sbs/yayinzirve.m3u8
-#EXTINF:-1 tvg-logo="https://i.hizliresim.com/lkl7u2r.png" group-title="TURKIYE DEATHLESS", beIN Sports 1
-http://palxlendimgaliba1010.mywire.org/proxy.php?url=https://eb9.04bf112a615942b41.sbs/yayininat.m3u8
-#EXTINF:-1 tvg-logo="https://i.hizliresim.com/lkl7u2r.png" group-title="TURKIYE DEATHLESS", beIN Sports 1
-http://palxlendimgaliba1010.mywire.org/proxy.php?url=https://eb9.04bf112a615942b41.sbs/yayin1.m3u8
-#EXTINF:-1 tvg-logo="https://i.hizliresim.com/pvr9h26.png" group-title="TURKIYE DEATHLESS", beIN Sports 2
-http://palxlendimgaliba1010.mywire.org/proxy.php?url=https://eb9.04bf112a615942b41.sbs/yayinb2.m3u8
-#EXTINF:-1 tvg-logo="https://i.hizliresim.com/ozrfqya.png" group-title="TURKIYE DEATHLESS", beIN Sports 3
-http://palxlendimgaliba1010.mywire.org/proxy.php?url=https://eb9.04bf112a615942b41.sbs/yayinb3.m3u8
-#EXTINF:-1 tvg-logo="https://i.hizliresim.com/kbhvyeh.png" group-title="TURKIYE DEATHLESS", beIN Sports 4
-http://palxlendimgaliba1010.mywire.org/proxy.php?url=https://eb9.04bf112a615942b41.sbs/yayinb4.m3u8
-#EXTINF:-1 tvg-logo="https://i.hizliresim.com/lkl7u2r.png" group-title="TURKIYE DEATHLESS", beIN Sports 5
-http://palxlendimgaliba1010.mywire.org/proxy.php?url=https://eb9.04bf112a615942b41.sbs/yayinb5.m3u8
-#EXTINF:-1 tvg-logo="https://i.hizliresim.com/lkl7u2r.png" group-title="TURKIYE DEATHLESS", beIN Sports 1 Max
-http://palxlendimgaliba1010.mywire.org/proxy.php?url=https://eb9.04bf112a615942b41.sbs/yayinbm1.m3u8
-#EXTINF:-1 tvg-logo="https://i.hizliresim.com/pvr9h26.png" group-title="TURKIYE DEATHLESS", beIN Sports 2 Max
-http://palxlendimgaliba1010.mywire.org/proxy.php?url=https://eb9.04bf112a615942b41.sbs/yayinbm2.m3u8
-#EXTINF:-1 tvg-logo="https://i.hizliresim.com/35ndyy0.png" group-title="TURKIYE DEATHLESS", Saran Sports 1
-http://palxlendimgaliba1010.mywire.org/proxy.php?url=https://eb9.04bf112a615942b41.sbs/yayinss.m3u8
-#EXTINF:-1 tvg-logo="https://i.imgur.com/mbF7SLI.png" group-title="TURKIYE DEATHLESS", Saran Sports 2
-http://palxlendimgaliba1010.mywire.org/proxy.php?url=https://eb9.04bf112a615942b41.sbs/yayinss2.m3u8
-#EXTINF:-1 tvg-logo="https://i.hizliresim.com/nyyqh1f.png" group-title="TURKIYE DEATHLESS", Tivibu Sports 1
-http://palxlendimgaliba1010.mywire.org/proxy.php?url=https://eb9.04bf112a615942b41.sbs/yayint1.m3u8
-#EXTINF:-1 tvg-logo="https://i.hizliresim.com/mr3sv0j.png" group-title="TURKIYE DEATHLESS", Tivibu Sports 2
-http://palxlendimgaliba1010.mywire.org/proxy.php?url=https://eb9.04bf112a615942b41.sbs/yayint2.m3u8
-#EXTINF:-1 tvg-logo="https://i.hizliresim.com/rcz77hb.png" group-title="TURKIYE DEATHLESS", Tivibu Sports 3
-http://palxlendimgaliba1010.mywire.org/proxy.php?url=https://eb9.04bf112a615942b41.sbs/yayint3.m3u8
-#EXTINF:-1 tvg-logo="https://i.hizliresim.com/185gwih.png" group-title="TURKIYE DEATHLESS", Tivibu Sports 4
-http://palxlendimgaliba1010.mywire.org/proxy.php?url=https://eb9.04bf112a615942b41.sbs/yayint4.m3u8
-#EXTINF:-1 tvg-logo="https://i.hizliresim.com/aa4pe3w.png" group-title="TURKIYE DEATHLESS", Smart Sports
-http://palxlendimgaliba1010.mywire.org/proxy.php?url=https://eb9.04bf112a615942b41.sbs/yayinsmarts.m3u8
-#EXTINF:-1 tvg-logo="https://i.hizliresim.com/aa4pe3w.png" group-title="TURKIYE DEATHLESS", Smart Sports 2
-http://palxlendimgaliba1010.mywire.org/proxy.php?url=https://eb9.04bf112a615942b41.sbs/yayinsms2.m3u8
-#EXTINF:-1 tvg-logo="https://i.ibb.co/VSSByY9/NBA-TV.png" group-title="TURKIYE DEATHLESS", NBA TV
-http://palxlendimgaliba1010.mywire.org/proxy.php?url=https://eb9.04bf112a615942b41.sbs/yayinnbatv.m3u8
-#EXTINF:-1 tvg-logo="https://i.hizliresim.com/ojqbhcx.png" group-title="TURKIYE DEATHLESS", Tâbii 1
-http://palxlendimgaliba1010.mywire.org/proxy.php?url=https://eb9.04bf112a615942b41.sbs/yayinex1.m3u8
-#EXTINF:-1 tvg-logo="https://i.hizliresim.com/ojqbhcx.png" group-title="TURKIYE DEATHLESS", Tâbii 2
-http://palxlendimgaliba1010.mywire.org/proxy.php?url=https://eb9.04bf112a615942b41.sbs/yayinex2.m3u8
-#EXTINF:-1 tvg-logo="https://i.hizliresim.com/ojqbhcx.png" group-title="TURKIYE DEATHLESS", Tâbii 3
-http://palxlendimgaliba1010.mywire.org/proxy.php?url=https://eb9.04bf112a615942b41.sbs/yayinex3.m3u8
-#EXTINF:-1 tvg-logo="https://i.hizliresim.com/ojqbhcx.png" group-title="TURKIYE DEATHLESS", Tâbii 4
-http://palxlendimgaliba1010.mywire.org/proxy.php?url=https://eb9.04bf112a615942b41.sbs/yayinex4.m3u8
-#EXTINF:-1 tvg-logo="https://i.hizliresim.com/ojqbhcx.png" group-title="TURKIYE DEATHLESS", Tâbii 5
-http://palxlendimgaliba1010.mywire.org/proxy.php?url=https://eb9.04bf112a615942b41.sbs/yayinex5.m3u8
-#EXTINF:-1 tvg-logo="https://i.hizliresim.com/ojqbhcx.png" group-title="TURKIYE DEATHLESS", Tâbii 6
-http://palxlendimgaliba1010.mywire.org/proxy.php?url=https://eb9.04bf112a615942b41.sbs/yayinex6.m3u8
+
 
 #EXTINF:-1 tvg-id="" tvg-name="HT SPOR HD" tvg-logo="https://i.hizliresim.com/mmazkt2.png" group-title="TURKIYE DEATHLESS",HT SPOR HD
 https://ciner.daioncdn.net/ht-spor/ht-spor.m3u8?app=web
@@ -461,8 +429,8 @@ https://vbtob9hyq58eiophct5qctxr2.medya.trt.com.tr/master_1080p.m3u8
                 if(l.startsWith('#EXTINF')) {
                     const nameMatch = l.match(/tvg-name="([^"]+)"/);
                     const logoMatch = l.match(/tvg-logo="([^"]+)"/);
-                    // İsim fallback
                     let name = "Kanal";
+                    
                     if (nameMatch) name = nameMatch[1];
                     else {
                         const commaSplit = l.split(',');
