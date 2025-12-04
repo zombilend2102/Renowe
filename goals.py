@@ -108,7 +108,7 @@ def fetch_trgoals():
     base = "https://trgoals"
     domain = ""
     # Aralığı daralttım ki hızlı bulsun, bulamazsa devam etsin
-    for i in range(1393, 1450): 
+    for i in range(1478, 1600): 
         test_domain = f"{base}{i}.xyz"
         try:
             response = requests.head(test_domain, headers=HEADERS, timeout=2)
