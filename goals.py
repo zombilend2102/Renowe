@@ -2,48 +2,73 @@ import requests
 import re
 import time
 
-# --- LOGO VE İSİM YAPILANDIRMASI ---
-# Kanal isimlerine göre logoları eşleştiriyoruz.
+# --- AYARLAR ---
+HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+TIMEOUT_VAL = 10 # Bağlantı süresini uzattık, hemen hata vermesin
+
+# --- LOGO HARİTASI (Tüm botlar için ortak) ---
 LOGO_MAP = {
     "beIN Sports 1": "https://i.hizliresim.com/lkl7u2r.png",
     "beIN Sports 2": "https://i.hizliresim.com/pvr9h26.png",
     "beIN Sports 3": "https://i.hizliresim.com/ozrfqya.png",
     "beIN Sports 4": "https://i.hizliresim.com/kbhvyeh.png",
-    "beIN Sports 5": "https://i.hizliresim.com/lkl7u2r.png", # 5 için özel yoksa 1 döner
-    "beIN Sports 1 Max": "https://i.hizliresim.com/a6kdghr.png",
-    "beIN Sports 2 Max": "https://i.hizliresim.com/hp2j3mg.png",
+    "beIN Sports 5": "https://i.hizliresim.com/lkl7u2r.png",
+    "beIN Sports Max 1": "https://i.hizliresim.com/a6kdghr.png",
+    "beIN Sports Max 2": "https://i.hizliresim.com/hp2j3mg.png",
     "Saran Sports 1": "https://i.hizliresim.com/35ndyy0.png",
+    "S Sports 1": "https://i.hizliresim.com/35ndyy0.png",
+    "S Sport 1": "https://i.hizliresim.com/35ndyy0.png",
     "Saran Sports 2": "https://i.imgur.com/mbF7SLI.png",
+    "S Sports 2": "https://i.imgur.com/mbF7SLI.png",
+    "S Sport 2": "https://i.imgur.com/mbF7SLI.png",
+    "Smart Spor 1": "https://i.hizliresim.com/aa4pe3w.png",
     "Smart Sports 1": "https://i.hizliresim.com/aa4pe3w.png",
-    "Smart Sports": "https://i.hizliresim.com/aa4pe3w.png",
+    "Smart Spor 2": "https://i.hizliresim.com/ce1qms5.png",
     "Smart Sports 2": "https://i.hizliresim.com/ce1qms5.png",
     "NBA TV": "https://i.ibb.co/VSSByY9/NBA-TV.png",
     "Tivibu Sports 1": "https://i.hizliresim.com/nyyqh1f.png",
+    "Tivibu Spor 1": "https://i.hizliresim.com/nyyqh1f.png",
     "Tivibu Sports 2": "https://i.hizliresim.com/mr3sv0j.png",
+    "Tivibu Spor 2": "https://i.hizliresim.com/mr3sv0j.png",
     "Tivibu Sports 3": "https://i.hizliresim.com/rcz77hb.png",
+    "Tivibu Spor 3": "https://i.hizliresim.com/rcz77hb.png",
     "Tivibu Sports 4": "https://i.hizliresim.com/185gwih.png",
+    "Tivibu Spor 4": "https://i.hizliresim.com/185gwih.png",
     "Tâbii": "https://i.hizliresim.com/ojqbhcx.png",
-    "Tâbii 1": "https://i.ibb.co/0cYJYvB/tabi1.png",
-    "Tâbii 2": "https://i.ibb.co/VNpTh0J/tabi2.png",
-    "Tâbii 3": "https://i.ibb.co/D7NwYrT/tabi3.png",
-    "Tâbii 4": "https://i.ibb.co/2h6yJJt/tabi4.png",
-    "Tâbii 5": "https://i.ibb.co/QFZnFHg/tabi5.png",
-    "Tâbii 6": "https://i.ibb.co/s386Cn7/tabi6.png",
+    "Tabii": "https://i.hizliresim.com/ojqbhcx.png",
     "BeIN Sports Haber": "https://i.ibb.co/XZmhFDn/Bein-HABER-HD.png",
     "A Spor": "https://i.ibb.co/NVcr0ST/A-SPOR.png",
     "TRT Spor": "https://i.ibb.co/H4k7r31/TRT-SPOR.png",
-    "TRT Spor Yildiz": "https://i.ibb.co/rH9TkLx/TRT-SPOR-YILDIZ.png",
-    "Exxen 1": "https://i.hizliresim.com/t75soiq.png", # Exxen için genel logo
+    "Eurosport 1": "https://i.hizliresim.com/t75soiq.png",
+    "Eurosport 2": "https://i.hizliresim.com/t75soiq.png",
+    "Exxen": "https://i.hizliresim.com/t75soiq.png",
 }
 
 def get_logo(channel_name):
     # İsim içinde geçen anahtar kelimeye göre logo bul
+    # Önce tam eşleşme veya içerik kontrolü
     for key, url in LOGO_MAP.items():
         if key.lower() in channel_name.lower():
             return url
+    # Tâbii kanalları için özel dinamik kontrol (Tabii 1, Tabii 2...)
+    if "tabii" in channel_name.lower():
+        num = re.search(r'\d+', channel_name)
+        if num:
+            n = num.group(0)
+            # Senin verdiğin listeye göre Tabii 1-6 arası logolar
+            tabii_logos = {
+                "1": "https://i.ibb.co/0cYJYvB/tabi1.png",
+                "2": "https://i.ibb.co/VNpTh0J/tabi2.png",
+                "3": "https://i.ibb.co/D7NwYrT/tabi3.png",
+                "4": "https://i.ibb.co/2h6yJJt/tabi4.png",
+                "5": "https://i.ibb.co/QFZnFHg/tabi5.png",
+                "6": "https://i.ibb.co/s386Cn7/tabi6.png"
+            }
+            return tabii_logos.get(n, "https://i.hizliresim.com/ojqbhcx.png")
+            
     return "https://i.hizliresim.com/ska5t9e.jpg" # Varsayılan Logo
 
-# --- STATİK KANALLAR (Senin verdiğin sabit liste) ---
+# --- STATİK KANALLAR ---
 STATIC_CHANNELS = """
 #EXTINF:-1 tvg-id="" tvg-name="HT SPOR HD" tvg-logo="https://i.hizliresim.com/mmazkt2.png" group-title="TURKIYE DEATHLESS",HT SPOR HD
 https://ciner.daioncdn.net/ht-spor/ht-spor.m3u8?app=web
@@ -77,25 +102,38 @@ https://z3mmimwz148csv0vaxtphqspf.medya.trt.com.tr/master_1080p.m3u8
 https://vbtob9hyq58eiophct5qctxr2.medya.trt.com.tr/master_1080p.m3u8
 """
 
-# --- KAYNAK 1: TRGOALS ---
+# --- 1. KAYNAK: TRGOALS (Proxy ile) ---
 def fetch_trgoals():
-    print("--- TrGoals Taranıyor ---")
+    print("--- 1. TrGoals Taranıyor ---")
     base = "https://trgoals"
     domain = ""
-    # Hızlı bulmak için aralığı daraltabilirsin veya böyle bırakabilirsin
-    for i in range(1393, 2101):
+    # Aralığı daralttım ki hızlı bulsun, bulamazsa devam etsin
+    for i in range(1393, 1450): 
         test_domain = f"{base}{i}.xyz"
         try:
-            response = requests.head(test_domain, timeout=2)
+            response = requests.head(test_domain, headers=HEADERS, timeout=2)
             if response.status_code == 200:
                 domain = test_domain
-                print(f"Aktif Domain Bulundu: {domain}")
+                print(f"✅ TrGoals Domain Bulundu: {domain}")
                 break
         except:
             continue
     
+    # Eğer yukarıda bulamazsa bir de 2080'den geriye tarasın (yedek)
     if not domain:
-        print("TrGoals domain bulunamadı.")
+        for i in range(2101, 2080, -1):
+             test_domain = f"{base}{i}.xyz"
+             try:
+                response = requests.head(test_domain, headers=HEADERS, timeout=2)
+                if response.status_code == 200:
+                    domain = test_domain
+                    print(f"✅ TrGoals Domain Bulundu (Yedek): {domain}")
+                    break
+             except:
+                continue
+
+    if not domain:
+        print("❌ TrGoals domain bulunamadı.")
         return []
 
     channel_ids = {
@@ -104,7 +142,7 @@ def fetch_trgoals():
         "yayinb5":"beIN Sports 5","yayinbm1":"beIN Sports 1 Max","yayinbm2":"beIN Sports 2 Max",
         "yayinss":"Saran Sports 1","yayinss2":"Saran Sports 2","yayint1":"Tivibu Sports 1",
         "yayint2":"Tivibu Sports 2","yayint3":"Tivibu Sports 3","yayint4":"Tivibu Sports 4",
-        "yayinsmarts":"Smart Sports","yayinsms2":"Smart Sports 2","yayinnbatv":"NBA TV",
+        "yayinsmarts":"Smart Sports 1","yayinsms2":"Smart Sports 2","yayinnbatv":"NBA TV",
         "yayinex1":"Tâbii 1","yayinex2":"Tâbii 2","yayinex3":"Tâbii 3",
         "yayinex4":"Tâbii 4","yayinex5":"Tâbii 5","yayinex6":"Tâbii 6"
     }
@@ -113,48 +151,55 @@ def fetch_trgoals():
     for channel_id, channel_name in channel_ids.items():
         channel_url = f"{domain}/channel.html?id={channel_id}"
         try:
-            r = requests.get(channel_url, headers={"User-Agent":"Mozilla/5.0"}, timeout=5)
+            r = requests.get(channel_url, headers=HEADERS, timeout=5)
             match = re.search(r'const baseurl = "(.*?)"', r.text)
             if match:
                 baseurl = match.group(1)
-                # Senin istediğin proxy formatı
                 full_url = f"http://palxlendimgaliba1010.mywire.org/proxy.php?url={baseurl}{channel_id}.m3u8"
                 logo = get_logo(channel_name)
+                # İsim karışmasın diye sonuna (G) ekleyebilirsin veya olduğu gibi bırakabilirsin
                 results.append(f'#EXTINF:-1 tvg-logo="{logo}" group-title="TURKIYE DEATHLESS", {channel_name}\n{full_url}')
         except:
             continue
+    print(f"TrGoals'den {len(results)} kanal eklendi.")
     return results
 
-# --- KAYNAK 2: ANDRO (Birazcikspor) ---
+# --- 2. KAYNAK: ANDRO/BIRAZCIK ---
 def fetch_andro():
-    print("--- Andro/Birazcik Taranıyor ---")
+    print("--- 2. Andro/Birazcik Taranıyor ---")
     active_domain = None
+    # 25'ten 100'e kadar tara
     for i in range(25, 100):
         url = f"https://birazcikspor{i}.xyz/"
         try:
-            r = requests.head(url, timeout=2)
+            r = requests.head(url, headers=HEADERS, timeout=2)
             if r.status_code == 200:
                 active_domain = url
-                print(f"Aktif Domain: {active_domain}")
+                print(f"✅ Andro Domain: {active_domain}")
                 break
         except:
             continue
 
     if not active_domain:
-        print("Andro domain bulunamadı.")
+        print("❌ Andro domain bulunamadı.")
         return []
 
     try:
-        html = requests.get(active_domain, timeout=10).text
+        html = requests.get(active_domain, headers=HEADERS, timeout=TIMEOUT_VAL).text
         m = re.search(r'<iframe[^>]+id="matchPlayer"[^>]+src="event\.html\?id=([^"]+)"', html)
-        if not m: return []
+        if not m: 
+            print("Andro iframe ID bulunamadı.")
+            return []
         first_id = m.group(1)
 
-        event_source = requests.get(active_domain + "event.html?id=" + first_id, timeout=10).text
+        event_source = requests.get(active_domain + "event.html?id=" + first_id, headers=HEADERS, timeout=TIMEOUT_VAL).text
         b = re.search(r'var\s+baseurls\s*=\s*\[\s*"([^"]+)"', event_source)
-        if not b: return []
+        if not b: 
+            print("Andro BaseURL bulunamadı.")
+            return []
         base_url = b.group(1)
-    except:
+    except Exception as e:
+        print(f"Andro Hata: {e}")
         return []
 
     channels_data = [
@@ -173,18 +218,17 @@ def fetch_andro():
 
     results = []
     for name, cid in channels_data:
+        # Andro direkt link veriyor, proxy eklemiyoruz hızlı çalışsın diye.
         full_url = f"{base_url}{cid}.m3u8"
-        # Bu kaynak için senin istediğin proxy varsa ekleyebiliriz ama genelde raw link daha iyidir HTML player için
-        # Eğer bu linkler token istiyorsa yine proxy.php yapısına sokabilirsin.
-        # Şimdilik direkt linki veriyorum çünkü HTML player (hls.js) oynatabilir.
         logo = get_logo(name)
         results.append(f'#EXTINF:-1 tvg-logo="{logo}" group-title="TURKIYE DEATHLESS", {name}\n{full_url}')
+    
+    print(f"Andro'dan {len(results)} kanal eklendi.")
     return results
 
-# --- KAYNAK 3: SELÇUK ---
+# --- 3. KAYNAK: SELÇUK (Senin Py3 Kodun) ---
 def fetch_selcuk():
-    print("--- Selçuk Taranıyor ---")
-    HEADERS = {"User-Agent": "Mozilla/5.0"}
+    print("--- 3. Selçuk Taranıyor ---")
     CHANNELS = [
         {"id": "bein1", "source_id": "selcukbeinsports1", "name": "beIN Sports 1"},
         {"id": "bein2", "source_id": "selcukbeinsports2", "name": "beIN Sports 2"},
@@ -194,24 +238,36 @@ def fetch_selcuk():
         {"id": "beinmax2", "source_id": "selcukbeinsportsmax2", "name": "beIN Sports Max 2"},
         {"id": "tivibu1", "source_id": "selcuktivibuspor1", "name": "Tivibu Sports 1"},
         {"id": "tivibu2", "source_id": "selcuktivibuspor2", "name": "Tivibu Sports 2"},
-        {"id": "ssport1", "source_id": "selcukssport", "name": "Saran Sports 1"},
-        {"id": "ssport2", "source_id": "selcukssport2", "name": "Saran Sports 2"},
+        {"id": "ssport1", "source_id": "selcukssport", "name": "S Sport 1"},
+        {"id": "ssport2", "source_id": "selcukssport2", "name": "S Sport 2"},
         {"id": "smart1", "source_id": "selcuksmartspor", "name": "Smart Sports 1"},
         {"id": "smart2", "source_id": "selcuksmartspor2", "name": "Smart Sports 2"},
     ]
 
+    base_url = None
     try:
+        # 1. Adım: Giriş sayfasından aktif siteyi bul
         entry_url = "https://www.selcuksportshd78.is/"
-        entry_source = requests.get(entry_url, headers=HEADERS, timeout=5).text
+        entry_source = requests.get(entry_url, headers=HEADERS, timeout=TIMEOUT_VAL).text
         match = re.search(r'url=(https:\/\/[^"]+)', entry_source)
-        if not match: return []
-        active_site = match.group(1)
+        if match:
+            active_site = match.group(1)
+            print(f"✅ Selçuk Aktif Site: {active_site}")
+            
+            # 2. Adım: Aktif siteden Base URL'yi bul
+            source = requests.get(active_site, headers=HEADERS, timeout=TIMEOUT_VAL).text
+            match_base = re.search(r'https:\/\/[^"]+\/index\.php\?id=selcukbeinsports1', source)
+            if match_base:
+                base_url = match_base.group(0).replace("selcukbeinsports1", "")
+            else:
+                print("❌ Selçuk Base URL Regex uymadı.")
+        else:
+             print("❌ Selçuk Giriş URL Regex uymadı.")
+    except Exception as e:
+        print(f"Selçuk Bağlantı Hatası: {e}")
+        return []
 
-        source = requests.get(active_site, headers=HEADERS, timeout=5).text
-        match = re.search(r'https:\/\/[^"]+\/index\.php\?id=selcukbeinsports1', source)
-        if not match: return []
-        base_url = match.group(0).replace("selcukbeinsports1", "")
-    except:
+    if not base_url:
         return []
 
     results = []
@@ -220,6 +276,7 @@ def fetch_selcuk():
         try:
             source = requests.get(url, headers=HEADERS, timeout=5).text
             stream_url = ""
+            # Senin Py3'teki regex mantığı
             match = re.search(r'(https:\/\/[^\'"]+\/live\/[^\'"]+\/playlist\.m3u8)', source)
             if match:
                 stream_url = match.group(1)
@@ -230,20 +287,23 @@ def fetch_selcuk():
             
             if stream_url:
                 stream_url = re.sub(r'[\'";].*$', '', stream_url).strip()
-                logo = get_logo(ch['name'])
-                results.append(f'#EXTINF:-1 tvg-logo="{logo}" group-title="TURKIYE DEATHLESS", {ch["name"]}\n{stream_url}')
+                if stream_url.startswith("http"):
+                    logo = get_logo(ch['name'])
+                    results.append(f'#EXTINF:-1 tvg-logo="{logo}" group-title="TURKIYE DEATHLESS", {ch["name"]}\n{stream_url}')
         except:
             continue
+    
+    print(f"Selçuk'tan {len(results)} kanal eklendi.")
     return results
 
-# --- HTML ŞABLONU ---
+# --- HTML ŞABLONU (HIZLANDIRILMIŞ PLAYER) ---
 HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#000000">
-    <title>Ultimate Pro Player - AutoPlay</title>
+    <title>Ultimate Pro Player - Fast Mode</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.0"></script>
@@ -261,7 +321,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             user-select: none;
         }
 
-        /* --- VİDEO ALANI --- */
         #video-container {
             position: fixed; inset: 0;
             background: #000; z-index: 0;
@@ -281,20 +340,18 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             display: flex; flex-direction: column; justify-content: space-between;
             background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 25%, transparent 65%, rgba(0,0,0,0.95) 100%);
             opacity: 0; transition: opacity 0.3s ease;
-            pointer-events: none; /* Gizliyken tıklamayı engelleme */
+            pointer-events: none; 
         }
         #ui-layer.visible { opacity: 1; pointer-events: auto; }
 
-        /* ÜST BAR */
         .top-bar { padding: 20px; margin-top: env(safe-area-inset-top); color: white; pointer-events: none; }
         .channel-title { font-size: 20px; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.8); padding-left: 20px; }
 
-        /* ORTA KONTROLLER */
         .center-controls {
             position: absolute; top: 50%; left: 50%;
             transform: translate(-50%, -50%);
             display: flex; align-items: center; gap: 40px; color: white;
-            pointer-events: auto; /* Butonlara tıklanabilsin */
+            pointer-events: auto; 
         }
         .ctrl-btn { 
             cursor: pointer; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.6)); 
@@ -306,7 +363,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         .play-btn svg { width: 80px; height: 80px; }
         .skip-btn svg { width: 45px; height: 45px; opacity: 0.9; }
 
-        /* KUMANDA ODAKLANMA EFEKTİ */
         .focused {
             transform: scale(1.15);
             border-color: #ff5200 !important;
@@ -314,14 +370,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             box-shadow: 0 0 15px rgba(255, 82, 0, 0.5);
         }
 
-        /* ALT BÖLÜM */
         .bottom-section {
             padding: 20px; padding-bottom: calc(20px + env(safe-area-inset-bottom));
             display: flex; flex-direction: column; gap: 15px;
             pointer-events: auto;
         }
 
-        /* KANAL KARTLARI */
         #channel-carousel {
             display: flex; overflow-x: auto; gap: 15px; padding: 10px;
             scroll-behavior: smooth;
@@ -353,7 +407,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         .channel-card img { width: 40px; height: 40px; object-fit: contain; }
         .channel-card .c-name { font-size: 13px; color: white; font-weight: 600; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
-        /* ALT BİLGİ */
         .controls-row { display: flex; align-items: center; gap: 15px; color: white; padding: 0 10px; }
         .time-text { font-size: 14px; font-weight: 600; }
         
@@ -404,7 +457,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     </div>
 
     <script>
-        // --- DEĞİŞKENLER ---
         const video = document.getElementById('player');
         const uiLayer = document.getElementById('ui-layer');
         const carousel = document.getElementById('channel-carousel');
@@ -419,12 +471,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         let isStretched = false;
         let uiTimeout;
 
-        // --- NAVİGASYON MANTIĞI ---
         let focusArea = 'none'; 
         let focusedControlIndex = 1;
         let focusedChannelIndex = 0;
 
-        // --- 1. GENEL DOKUNMATİK / MOUSE YÖNETİMİ ---
         document.addEventListener('click', (e) => {
             if(e.target.closest('.ctrl-btn') || e.target.closest('.channel-card')) {
                 resetUITimer();
@@ -439,7 +489,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             }
         });
 
-        // --- 2. FONKSİYONLAR ---
         function togglePlay() {
             if (video.paused) { video.play(); iconPlay.classList.add('hidden'); iconPause.classList.remove('hidden'); }
             else { video.pause(); iconPlay.classList.remove('hidden'); iconPause.classList.add('hidden'); }
@@ -465,21 +514,48 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             titleEl.textContent = ch.name;
 
             if (hls) { hls.destroy(); hls = null; }
+            
             if (Hls.isSupported()) {
-                hls = new Hls();
+                // --- HIZLANDIRMA AYARLARI BURADA ---
+                var config = {
+                    startFragPrefetch: true,        // Başlangıç parçasını hemen çek
+                    enableWorker: true,             // Arka plan işçisini aç
+                    lowLatencyMode: true,           // Düşük gecikme modu
+                    backBufferLength: 30,
+                    maxMaxBufferLength: 10,         // Çok fazla tampon yapma, canlı yayın bu
+                    liveSyncDurationCount: 2,       // Canlı yayına daha yakın başla
+                };
+                
+                hls = new Hls(config);
                 hls.loadSource(ch.url);
                 hls.attachMedia(video);
                 hls.on(Hls.Events.MANIFEST_PARSED, () => {
                     video.play().catch(e => {
-                        console.log("Otomatik oynatma tarayıcı tarafından engellendi.");
+                        console.log("Oto oynatma bekleniyor...");
                     });
                 });
+                hls.on(Hls.Events.ERROR, function (event, data) {
+                     if (data.fatal) {
+                        switch (data.type) {
+                        case Hls.ErrorTypes.NETWORK_ERROR:
+                            console.log("Ağ hatası, yeniden deneniyor...");
+                            hls.startLoad();
+                            break;
+                        case Hls.ErrorTypes.MEDIA_ERROR:
+                            console.log("Medya hatası, kurtarılıyor...");
+                            hls.recoverMediaError();
+                            break;
+                        default:
+                            hls.destroy();
+                            break;
+                        }
+                    }
+                });
+
             } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
                 video.src = ch.url;
                 video.addEventListener('loadedmetadata', () => {
-                    video.play().catch(e => {
-                        console.log("Otomatik oynatma engellendi.");
-                    });
+                    video.play().catch(e => {});
                 });
             }
             iconPlay.classList.add('hidden'); iconPause.classList.remove('hidden');
@@ -541,7 +617,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             }
         }
 
-        // --- 3. KUMANDA (REMOTE) KONTROLLERİ ---
         document.addEventListener('keydown', (e) => {
             if (focusArea !== 'none') resetUITimer();
 
@@ -608,7 +683,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             }
         });
 
-        // --- VERİ ---
+        // --- VERİ ENJEKSİYONU ---
         const m3uList = `
 __M3U_CONTENT__
 `;
@@ -621,8 +696,8 @@ __M3U_CONTENT__
                 if(l.startsWith('#EXTINF')) {
                     const nameMatch = l.match(/tvg-name="([^"]+)"/);
                     const logoMatch = l.match(/tvg-logo="([^"]+)"/);
-                    // İsim fallback
                     let name = "Kanal";
+                    
                     if (nameMatch) name = nameMatch[1];
                     else {
                         const commaSplit = l.split(',');
@@ -648,11 +723,10 @@ def main():
     print("Kanallar taranıyor...")
     
     # 3 Kaynağı tara ve listeleri al
-    list1 = fetch_trgoals()
-    list2 = fetch_andro()
-    list3 = fetch_selcuk()
+    list1 = fetch_trgoals() # Proxy'li
+    list2 = fetch_andro()   # Proxy'siz (Direkt Link)
+    list3 = fetch_selcuk()  # Proxy'siz (Direkt Link)
 
-    # Hepsini birleştir
     all_channels = list1 + list2 + list3
     
     # Python listesini tek bir string haline getir
@@ -661,15 +735,13 @@ def main():
     # Sabit kanalları da ekle
     final_m3u_content = dynamic_m3u_content + "\n" + STATIC_CHANNELS
 
-    # HTML şablonundaki yer tutucuyu (placeholder) değiştir
-    # JavaScript içindeki template literal (backtick) ile sorun yaşamamak için replace kullanıyoruz
+    # HTML şablonundaki yer tutucuyu değiştir
     final_html = HTML_TEMPLATE.replace("__M3U_CONTENT__", final_m3u_content)
 
-    # Dosyayı yaz
     with open("goals.html", "w", encoding="utf-8") as f:
         f.write(final_html)
     
-    print(f"✅ goals.html başarıyla oluşturuldu. Toplam {len(all_channels)} yeni kanal bulundu.")
+    print(f"✅ goals.html oluşturuldu. Toplam Kanal: {len(all_channels)}")
 
 if __name__ == "__main__":
     main()
