@@ -227,7 +227,11 @@
                 };
                 
                 hls = new Hls(config);
-                hls.config.pLoader = (context) => new HlsPlayerLoader(context, ch.referrer, ch.userAgent);
+                // Custom Loader ile Referrer/User-Agent başlıkları gönderiliyor
+                hls.config.loader = function(context) { 
+                    return new HlsPlayerLoader(context, ch.referrer, ch.userAgent); 
+                };
+
                 hls.loadSource(ch.url);
                 hls.attachMedia(video);
                 hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -262,7 +266,7 @@
             iconPlay.classList.add('hidden'); iconPause.classList.remove('hidden');
         }
 
-        // Custom HLS Loader for Referrer/User-Agent Support
+        // Custom HLS Loader for Referrer/User-Agent Support (PHP botundan gelen bilgiler için)
         function HlsPlayerLoader(context, referrer, userAgent) {
             this.context = context;
             this.stats = { trequest: performance.now(), tfirst: 0, tload: 0, tabort: 0, loaded: 0, total: 0 };
@@ -359,7 +363,6 @@
         function updateFocusVisuals() {
             document.querySelectorAll('.focused').forEach(el => el.classList.remove('focused'));
             if (focusArea === 'controls') {
-                // Kontroller 0: Rewind, 1: Play/Pause, 2: Forward, 3: Fit
                 if (focusedControlIndex === 0) document.getElementById('btn-rewind').classList.add('focused');
                 if (focusedControlIndex === 1) document.getElementById('btn-play').classList.add('focused');
                 if (focusedControlIndex === 2) document.getElementById('btn-forward').classList.add('focused');
@@ -377,7 +380,6 @@
         document.addEventListener('keydown', (e) => {
             if (focusArea !== 'none') resetUITimer();
             
-            // Eğer arayüz görünmüyorsa, sadece Ok/Enter gösterir, yukarı/aşağı kanal değiştirir.
             if (!uiLayer.classList.contains('visible') && e.key !== 'Enter' && e.key !== 'Ok') {
                 if (e.key === 'ArrowUp' || e.key === 'ChannelUp') {
                     playChannel(currentChannelIndex - 1); 
@@ -394,22 +396,20 @@
                 case 'ArrowUp':
                 case 'ChannelUp':
                     if (focusArea === 'none') {
-                        // Eğer UI yoksa, sadece kanal değiştirme
                         playChannel(currentChannelIndex - 1); 
                     } else if (focusArea === 'channels') {
                         focusArea = 'controls';
-                        focusedControlIndex = 1; // Ortadaki Play tuşuna odaklan
+                        focusedControlIndex = 1; 
                         updateFocusVisuals();
                     }
                     break;
                 case 'ArrowDown':
                 case 'ChannelDown':
                     if (focusArea === 'none') {
-                        // Eğer UI yoksa, sadece kanal değiştirme
                         playChannel(currentChannelIndex + 1); 
                     } else if (focusArea === 'controls') {
                         focusArea = 'channels';
-                        focusedChannelIndex = currentChannelIndex; // Oynatılan kanala odaklan
+                        focusedChannelIndex = currentChannelIndex; 
                         updateFocusVisuals();
                     }
                     break;
@@ -435,13 +435,13 @@
                 case 'Ok':
                     if (focusArea === 'none') {
                         showUI();
-                        focusArea = 'channels'; // Default olarak kanallara odaklan
+                        focusArea = 'channels'; 
                         focusedChannelIndex = currentChannelIndex;
                         updateFocusVisuals();
                     } else {
                         if (focusArea === 'channels') {
                             playChannel(focusedChannelIndex);
-                            hideUI(); // Kanal seçildikten sonra arayüzü gizle
+                            hideUI(); 
                         }
                         else if (focusArea === 'controls') {
                             if (focusedControlIndex === 0) seek(-10);
@@ -460,37 +460,72 @@
         });
 
         const m3uList = `
+#EXTINF:-1 tvg-logo="https://i.hizliresim.com/lkl7u2r.png" group-title="TURKIYE ATOMSPOR", BEIN SPORTS 1
+#EXTVLCOPT:http-referrer=https://atomsportv480.top
+#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36
+https://hlssssss.levebelc5bas.workers.dev/https://corestream.ronaldovurdu.help//hls/bein-sports-1.m3u8
+#EXTINF:-1 tvg-logo="https://i.hizliresim.com/pvr9h26.png" group-title="TURKIYE ATOMSPOR", BEIN SPORTS 2
+#EXTVLCOPT:http-referrer=https://atomsportv480.top
+#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36
+https://hlssssss.levebelc5bas.workers.dev/https://corestream.ronaldovurdu.help//hls/bein-sports-2.m3u8
+#EXTINF:-1 tvg-logo="https://i.hizliresim.com/ozrfqya.png" group-title="TURKIYE ATOMSPOR", BEIN SPORTS 3
+#EXTVLCOPT:http-referrer=https://atomsportv480.top
+#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36
+https://hlssssss.levebelc5bas.workers.dev/https://corestream.ronaldovurdu.help//hls/bein-sports-3.m3u8
+#EXTINF:-1 tvg-logo="https://i.hizliresim.com/kbhvyeh.png" group-title="TURKIYE ATOMSPOR", BEIN SPORTS 4
+#EXTVLCOPT:http-referrer=https://atomsportv480.top
+#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36
+https://hlssssss.levebelc5bas.workers.dev/https://corestream.ronaldovurdu.help//hls/bein-sports-4.m3u8
+#EXTINF:-1 tvg-logo="https://i.hizliresim.com/35ndyy0.png" group-title="TURKIYE ATOMSPOR", S SPORT
+#EXTVLCOPT:http-referrer=https://atomsportv480.top
+#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36
+https://hlssssss.levebelc5bas.workers.dev/https://corestream.ronaldovurdu.help//hls/s-sport.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/mbF7SLI.png" group-title="TURKIYE ATOMSPOR", S SPORT 2
+#EXTVLCOPT:http-referrer=https://atomsportv480.top
+#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36
+https://hlssssss.levebelc5bas.workers.dev/https://corestream.ronaldovurdu.help//hls/s-sport-2.m3u8
+#EXTINF:-1 tvg-logo="https://i.hizliresim.com/nyyqh1f.png" group-title="TURKIYE ATOMSPOR", TİVİBU SPOR 1
+#EXTVLCOPT:http-referrer=https://atomsportv480.top
+#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36
+https://hlssssss.levebelc5bas.workers.dev/https://corestream.ronaldovurdu.help//hls/tivibu-spor-1.m3u8
+#EXTINF:-1 tvg-logo="https://i.hizliresim.com/mr3sv0j.png" group-title="TURKIYE ATOMSPOR", TİVİBU SPOR 2
+#EXTVLCOPT:http-referrer=https://atomsportv480.top
+#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36
+https://hlssssss.levebelc5bas.workers.dev/https://corestream.ronaldovurdu.help//hls/tivibu-spor-2.m3u8
+#EXTINF:-1 tvg-logo="https://i.hizliresim.com/rcz77hb.png" group-title="TURKIYE ATOMSPOR", TİVİBU SPOR 3
+#EXTVLCOPT:http-referrer=https://atomsportv480.top
+#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36
+https://hlssssss.levebelc5bas.workers.dev/https://corestream.ronaldovurdu.help//hls/tivibu-spor-3.m3u8
 
-
-#EXTINF:-1 tvg-id="" tvg-name="HT SPOR HD" tvg-logo="https://i.hizliresim.com/mmazkt2.png" group-title="TURKIYE ATOMSPOR",HT SPOR HD
+#EXTINF:-1 tvg-id="" tvg-name="HT SPOR HD" tvg-logo="https://i.hizliresim.com/mmazkt2.png" group-title="TURKIYE STATIK",HT SPOR HD
 https://ciner.daioncdn.net/ht-spor/ht-spor.m3u8?app=web
-#EXTINF:-1 tvg-id="" tvg-name="NBA SPORTS HD" tvg-logo="https://i.ibb.co/VSSByY9/NBA-TV.png" group-title="TURKIYE ATOMSPOR",NBA SPORTS HD
+#EXTINF:-1 tvg-id="" tvg-name="NBA SPORTS HD" tvg-logo="https://i.ibb.co/VSSByY9/NBA-TV.png" group-title="TURKIYE STATIK",NBA SPORTS HD
 https://ww.dooballfree.vip/live/nba/playlist.m3u8
-#EXTINF:-1 tvg-id="" tvg-name="A SPOR HD" tvg-logo="https://i.ibb.co/NVcr0ST/A-SPOR.png" group-title="TURKIYE ATOMSPOR",A SPOR HD
+#EXTINF:-1 tvg-id="" tvg-name="A SPOR HD" tvg-logo="https://i.ibb.co/NVcr0ST/A-SPOR.png" group-title="TURKIYE STATIK",A SPOR HD
 https://rnttwmjcin.turknet.ercdn.net/lcpmvefbyo/aspor/aspor.m3u8
-#EXTINF:-1 tvg-id="" tvg-name="TRT SPOR HD" tvg-logo="https://i.ibb.co/H4k7r31/TRT-SPOR.png" group-title="TURKIYE ATOMSPOR",TRT SPOR HD
+#EXTINF:-1 tvg-id="" tvg-name="TRT SPOR HD" tvg-logo="https://i.ibb.co/H4k7r31/TRT-SPOR.png" group-title="TURKIYE STATIK",TRT SPOR HD
 https://tv-trtspor1.medya.trt.com.tr/master.m3u8
-#EXTINF:-1 tvg-id="" tvg-name="TRT SPOR ★ HD" tvg-logo="https://i.ibb.co/rH9TkLx/TRT-SPOR-YILDIZ.png" group-title="TURKIYE ATOMSPOR",TRT SPOR ★ HD
+#EXTINF:-1 tvg-id="" tvg-name="TRT SPOR ★ HD" tvg-logo="https://i.ibb.co/rH9TkLx/TRT-SPOR-YILDIZ.png" group-title="TURKIYE STATIK",TRT SPOR ★ HD
 https://tv-trtspor2.medya.trt.com.tr/master.m3u8
-#EXTINF:-1 tvg-id="" tvg-name="TJK SPOR HD" tvg-logo="https://i.ibb.co/WVwxNCY/TJK-TV.png" group-title="TURKIYE ATOMSPOR",TJK SPOR HD
+#EXTINF:-1 tvg-id="" tvg-name="TJK SPOR HD" tvg-logo="https://i.ibb.co/WVwxNCY/TJK-TV.png" group-title="TURKIYE STATIK",TJK SPOR HD
 https://tjktv-live.tjk.org/tjktv_1080p.m3u8
-#EXTINF:-1 tvg-id="" tvg-name="FB SPOR HD" tvg-logo="https://i.ibb.co/5kTcBJM/FB-TV.png" group-title="TURKIYE ATOMSPOR",FB SPOR HD
+#EXTINF:-1 tvg-id="" tvg-name="FB SPOR HD" tvg-logo="https://i.ibb.co/5kTcBJM/FB-TV.png" group-title="TURKIYE STATIK",FB SPOR HD
 https://fbtv.fenerbahce.org/fenerbahcetv.stream_720p/playlist.m3u8
-#EXTINF:-1 tvg-id="" tvg-name="SPORTS HD" tvg-logo="https://i.ibb.co/VxHMGyp/SportsTV.png" group-title="TURKIYE ATOMSPOR",SPORTS HD
+#EXTINF:-1 tvg-id="" tvg-name="SPORTS HD" tvg-logo="https://i.ibb.co/VxHMGyp/SportsTV.png" group-title="TURKIYE STATIK",SPORTS HD
 https://live.sportstv.com.tr/hls/low/sportstv_fhd/index.m3u8
-#EXTINF:-1 tvg-id="" tvg-name="Tabii Sport HD" tvg-logo="https://i.hizliresim.com/ojqbhcx.png" group-title="TURKIYE ATOMSPOR",Tabii Sport HD
+#EXTINF:-1 tvg-id="" tvg-name="Tabii Sport HD" tvg-logo="https://i.hizliresim.com/ojqbhcx.png" group-title="TURKIYE STATIK",Tabii Sport HD
 https://beert7sqimrk0bfdupfgn6qew.medya.trt.com.tr/master.m3u8
-#EXTINF:-1 tvg-id="" tvg-name="Tabii Sport 1 HD" tvg-logo="https://i.ibb.co/0cYJYvB/tabi1.png" group-title="TURKIYE ATOMSPOR",Tabii Sport 1 HD
+#EXTINF:-1 tvg-id="" tvg-name="Tabii Sport 1 HD" tvg-logo="https://i.ibb.co/0cYJYvB/tabi1.png" group-title="TURKIYE STATIK",Tabii Sport 1 HD
 https://iaqzu4szhtzeqd0edpsayinle.medya.trt.com.tr/master_1080p.m3u8
-#EXTINF:-1 tvg-id="" tvg-name="Tabii Sport 2 HD" tvg-logo="https://i.ibb.co/VNpTh0J/tabi2.png" group-title="TURKIYE ATOMSPOR",Tabii Sport 2 HD
+#EXTINF:-1 tvg-id="" tvg-name="Tabii Sport 2 HD" tvg-logo="https://i.ibb.co/VNpTh0J/tabi2.png" group-title="TURKIYE STATIK",Tabii Sport 2 HD
 https://klublsslubcgyiz7zqt5bz8il.medya.trt.com.tr/master_1080p.m3u8
-#EXTINF:-1 tvg-id="" tvg-name="Tabii Sport 3 HD" tvg-logo="https://i.ibb.co/D7NwYrT/tabi3.png" group-title="TURKIYE ATOMSPOR",Tabii Sport 3 HD
+#EXTINF:-1 tvg-id="" tvg-name="Tabii Sport 3 HD" tvg-logo="https://i.ibb.co/D7NwYrT/tabi3.png" group-title="TURKIYE STATIK",Tabii Sport 3 HD
 https://ujnf69op16x2fiiywxcnx41q8.medya.trt.com.tr/master_1080p.m3u8
-#EXTINF:-1 tvg-id="" tvg-name="Tabii Sport 4 HD" tvg-logo="https://i.ibb.co/2h6yJJt/tabi4.png" group-title="TURKIYE ATOMSPOR",Tabii Sport 4 HD
+#EXTINF:-1 tvg-id="" tvg-name="Tabii Sport 4 HD" tvg-logo="https://i.ibb.co/2h6yJJt/tabi4.png" group-title="TURKIYE STATIK",Tabii Sport 4 HD
 https://bfxy3jgeydpbphtk8qfqwm3hr.medya.trt.com.tr/master_1080p.m3u8
-#EXTINF:-1 tvg-id="" tvg-name="Tabii Sport 5 HD" tvg-logo="https://i.ibb.co/QFZnFHg/tabi5.png" group-title="TURKIYE ATOMSPOR",Tabii Sport 5 HD
+#EXTINF:-1 tvg-id="" tvg-name="Tabii Sport 5 HD" tvg-logo="https://i.ibb.co/QFZnFHg/tabi5.png" group-title="TURKIYE STATIK",Tabii Sport 5 HD
 https://z3mmimwz148csv0vaxtphqspf.medya.trt.com.tr/master_1080p.m3u8
-#EXTINF:-1 tvg-id="" tvg-name="Tabii Sport 6 HD" tvg-logo="https://i.ibb.co/s386Cn7/tabi6.png" group-title="TURKIYE ATOMSPOR",Tabii Sport 6 HD
+#EXTINF:-1 tvg-id="" tvg-name="Tabii Sport 6 HD" tvg-logo="https://i.ibb.co/s386Cn7/tabi6.png" group-title="TURKIYE STATIK",Tabii Sport 6 HD
 https://vbtob9hyq58eiophct5qctxr2.medya.trt.com.tr/master_1080p.m3u8
 
 `;
@@ -518,9 +553,9 @@ https://vbtob9hyq58eiophct5qctxr2.medya.trt.com.tr/master_1080p.m3u8
                     currentReferrer = "";
                     currentUserAgent = "";
                 } else if (l.startsWith('#EXTVLCOPT:http-referrer=')) {
-                    currentReferrer = l.split('=')[1].trim();
+                    currentReferrer = l.substring('#EXTVLCOPT:http-referrer='.length).trim();
                 } else if (l.startsWith('#EXTVLCOPT:http-user-agent=')) {
-                    currentUserAgent = l.split('=')[1].trim();
+                    currentUserAgent = l.substring('#EXTVLCOPT:http-user-agent='.length).trim();
                 } else if(l.startsWith('http')) {
                     channels.push({...t, url: l, referrer: currentReferrer, userAgent: currentUserAgent});
                 }
