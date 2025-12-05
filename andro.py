@@ -640,7 +640,7 @@ def main():
     final_html = HTML_TEMPLATE.replace("__M3U_CONTENT__", final_m3u_content)
 
     # 5. Dosyayı Kaydet
-    with open("goals.html", "w", encoding="utf-8") as f:
+    with open("andro.html", "w", encoding="utf-8") as f:
         f.write(final_html)
     
     total_channels = len(dynamic_list) + 17 # 17 Statik kanal
