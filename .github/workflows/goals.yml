@@ -23,8 +23,8 @@ jobs:
         python -m pip install --upgrade pip
         pip install requests
 
-    - name: Scripti Çalıştır (goals.py)
-      run: python goals.py
+    - name: Scripti Çalıştır (slck.py)
+      run: python slck.py
 
     - name: Değişiklikleri Commit ve Push Yap
       run: |
