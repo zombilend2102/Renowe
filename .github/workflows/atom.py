@@ -1,0 +1,35 @@
+name: Generate Atom HTML
+
+on:
+  workflow_dispatch:  # Manuel çalıştırma için
+  schedule:
+    - cron: '*/10 * * * *'  # Her 10 dakikada bir
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install requests
+
+    - name: Run atom.py
+      run: python atom.py
+
+    - name: Commit and push if changes
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add atom.html
+        git commit -m "Update atom.html" || echo "No changes to commit"
+        git push
