@@ -48,7 +48,6 @@ def find_active_atomsportv_domain():
     
     # 480'den 999'a kadar domainleri tara
     for i in range(480, 1000):
-        # NOT: .top yerine .xyz gibi farklı uzantılar da denenebilir. Şimdilik sadece .top kullanılıyor.
         url = f"https://www.atomsportv{i}.top"
         try:
             # HEAD isteği ile domainin erişilebilirliğini kontrol et
@@ -116,7 +115,6 @@ def get_channel_m3u8(channel_id, base_domain):
         return None
         
     except Exception as e:
-        # print(f"Hata oluştu: {e}") # Hata mesajı çok yer kaplıyor, şimdilik gizleyelim.
         return None
 
 def fetch_atomsportv():
@@ -149,12 +147,9 @@ def fetch_atomsportv():
         if m3u8_url:
             logo_url = get_logo(name)
             
-            # #EXTVLCOPT ile referer ve user-agent bilgileri ekleniyor.
-            # BURASI ÖNEMLİ: base_domain bilgisi referer olarak eklenir.
+            # SADELEŞTİRME: #EXTVLCOPT satırları KALDIRILDI.
             entry = (
                 f'#EXTINF:-1 tvg-logo="{logo_url}" group-title="TURKIYE ATOMSPOR", {name}\n'
-                f'#EXTVLCOPT:http-referrer={base_domain}\n'
-                f'#EXTVLCOPT:http-user-agent={HEADERS["User-Agent"]}\n'
                 f'{m3u8_url}'
             )
             results.append(entry)
@@ -166,7 +161,7 @@ def fetch_atomsportv():
     print(f"\n✅ AtomSporTV: {working_count} çalışan kanal hazırlandı.")
     return results
 
-# --- STATİK KANALLAR ---
+# --- STATİK KANALLAR (Değiştirilmedi) ---
 STATIC_CHANNELS = """
 #EXTINF:-1 tvg-id="" tvg-name="HT SPOR HD" tvg-logo="https://i.hizliresim.com/mmazkt2.png" group-title="TURKIYE STATIK",HT SPOR HD
 https://ciner.daioncdn.net/ht-spor/ht-spor.m3u8?app=web
@@ -200,7 +195,7 @@ https://z3mmimwz148csv0vaxtphqspf.medya.trt.com.tr/master_1080p.m3u8
 https://vbtob9hyq58eiophct5qctxr2.medya.trt.com.tr/master_1080p.m3u8
 """
 
-# --- HTML ŞABLONU (AYNEN KORUNDU) ---
+# --- HTML ŞABLONU (REFERER MANTIKSIZLAŞTIRILMIŞ) ---
 HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="tr">
 <head>
@@ -430,11 +425,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 };
                 
                 hls = new Hls(config);
-                // Custom Loader ile Referrer/User-Agent başlıkları gönderiliyor
-                hls.config.loader = function(context) { 
-                    return new HlsPlayerLoader(context, ch.referrer, ch.userAgent); 
-                };
-
+                // NOT: Custom Loader ve Referrer mantığı kaldırıldı
                 hls.loadSource(ch.url);
                 hls.attachMedia(video);
                 hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -469,61 +460,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             iconPlay.classList.add('hidden'); iconPause.classList.remove('hidden');
         }
 
-        // Custom HLS Loader for Referrer/User-Agent Support (PHP botundan gelen bilgiler için)
-        function HlsPlayerLoader(context, referrer, userAgent) {
-            this.context = context;
-            this.stats = { trequest: performance.now(), tfirst: 0, tload: 0, tabort: 0, loaded: 0, total: 0 };
-            this.xhr = null;
-            this.referrer = referrer;
-            this.userAgent = userAgent;
-        }
-
-        HlsPlayerLoader.prototype.load = function(context, config, callbacks) {
-            this.context = context;
-            this.callbacks = callbacks;
-            this.stats.trequest = performance.now();
-            const xhr = this.xhr = new XMLHttpRequest();
-            xhr.onreadystatechange = this.onreadystatechange.bind(this);
-            xhr.onprogress = this.onprogress.bind(this);
-            xhr.responseType = context.responseType || '';
-            xhr.open('GET', context.url, true);
-            
-            // Custom Headers ekleniyor
-            if (this.referrer) xhr.setRequestHeader('Referer', this.referrer);
-            if (this.userAgent) xhr.setRequestHeader('User-Agent', this.userAgent);
-
-            xhr.send();
-        };
-
-        HlsPlayerLoader.prototype.onreadystatechange = function(event) {
-            const xhr = event.currentTarget;
-            if (xhr.readyState === 4) {
-                this.stats.tload = performance.now();
-                if (xhr.status >= 200 && xhr.status < 300) {
-                    this.stats.loaded = this.stats.total = xhr.response.length || xhr.responseText.length || 0;
-                    this.callbacks.onSuccess(this.context, this.stats, { code: xhr.status, data: xhr.response || xhr.responseText });
-                } else {
-                    this.callbacks.onError(this.context, this.stats, { code: xhr.status, text: xhr.statusText });
-                }
-            }
-        };
-
-        HlsPlayerLoader.prototype.onprogress = function(event) {
-            if (event.lengthComputable) {
-                this.stats.loaded = event.loaded;
-                this.stats.total = event.total;
-                this.callbacks.onProgress(this.context, this.stats, event.loaded / event.total);
-            }
-        };
-
-        HlsPlayerLoader.prototype.abort = function() {
-            const xhr = this.xhr;
-            if (xhr && xhr.readyState !== 4) {
-                this.stats.tabort = performance.now();
-                xhr.abort();
-            }
-        };
-
+        // NOT: Custom HLS Loader KALDIRILDI
+        
         function showUI() {
             uiLayer.classList.add('visible');
             resetUITimer();
@@ -669,9 +607,8 @@ __M3U_CONTENT__
         window.onload = () => {
             const lines = m3uList.split('\\n');
             let t = {};
-            let currentReferrer = "";
-            let currentUserAgent = "";
-
+            // NOT: Referrer ve UserAgent artık M3U'dan okunmuyor.
+            
             lines.forEach(l => {
                 l=l.trim();
                 if(l.startsWith('#EXTINF')) {
@@ -685,15 +622,14 @@ __M3U_CONTENT__
                         if (commaSplit.length > 1) name = commaSplit[1].trim();
                     }
                     
+                    // Referrer ve UserAgent değerleri boş bırakıldı.
                     t = { name: name, logo: logoMatch ? logoMatch[1] : "", referrer: "", userAgent: "" };
-                    currentReferrer = "";
-                    currentUserAgent = "";
-                } else if (l.startsWith('#EXTVLCOPT:http-referrer=')) {
-                    currentReferrer = l.substring('#EXTVLCOPT:http-referrer='.length).trim();
-                } else if (l.startsWith('#EXTVLCOPT:http-user-agent=')) {
-                    currentUserAgent = l.substring('#EXTVLCOPT:http-user-agent='.length).trim();
-                } else if(l.startsWith('http')) {
-                    channels.push({...t, url: l, referrer: currentReferrer, userAgent: currentUserAgent});
+                    
+                } 
+                // NOT: #EXTVLCOPT satırlarını atlamak için kontrol eklenmedi.
+                else if(l.startsWith('http')) {
+                    // Sadece name, logo ve url kullanılıyor.
+                    channels.push({...t, url: l});
                 }
             });
             if(channels.length) { 
@@ -707,14 +643,13 @@ __M3U_CONTENT__
 """
 
 def main():
-    # 1. Dinamik AtomSporTV linklerini al (Oto domain tarama dahil)
+    # 1. Dinamik AtomSporTV linklerini al (Oto domain tarama dahil, #EXTVLCOPT olmadan)
     dynamic_list = fetch_atomsportv()
 
     # 2. Dinamik listeyi birleştir
     dynamic_m3u_content = "\n".join(dynamic_list)
     
     # 3. Statik kanallarla birleştirme işlemi.
-    # ÖNCE DİNAMİK, SONRA STATİK kanallar eklenir. Bu, dinamik kanalların listenin en üstünde olmasını sağlar.
     final_m3u_content = dynamic_m3u_content + "\n" + STATIC_CHANNELS
 
     # 4. HTML Şablonuna Göm
@@ -728,7 +663,7 @@ def main():
     static_channel_count = STATIC_CHANNELS.count('#EXTINF')
     total_channels = len(dynamic_list) + static_channel_count 
     
-    print(f"🎯 İŞLEM BAŞARILI! OTO Domain taraması yapıldı ve dinamik kanallar listenin en üstünde olacak şekilde '{output_filename}' dosyası oluşturuldu.")
+    print(f"🎯 İŞLEM BAŞARILI! '#EXTVLCOPT' satırları kaldırıldı ve '{output_filename}' dosyası oluşturuldu.")
     print(f"📊 Toplam Kanal Sayısı: {total_channels}")
 
 if __name__ == "__main__":
