@@ -227,11 +227,7 @@
                 };
                 
                 hls = new Hls(config);
-                // Custom Loader ile Referrer/User-Agent başlıkları gönderiliyor
-                hls.config.loader = function(context) { 
-                    return new HlsPlayerLoader(context, ch.referrer, ch.userAgent); 
-                };
-
+                // NOT: Custom Loader ve Referrer mantığı kaldırıldı
                 hls.loadSource(ch.url);
                 hls.attachMedia(video);
                 hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -266,61 +262,8 @@
             iconPlay.classList.add('hidden'); iconPause.classList.remove('hidden');
         }
 
-        // Custom HLS Loader for Referrer/User-Agent Support (PHP botundan gelen bilgiler için)
-        function HlsPlayerLoader(context, referrer, userAgent) {
-            this.context = context;
-            this.stats = { trequest: performance.now(), tfirst: 0, tload: 0, tabort: 0, loaded: 0, total: 0 };
-            this.xhr = null;
-            this.referrer = referrer;
-            this.userAgent = userAgent;
-        }
-
-        HlsPlayerLoader.prototype.load = function(context, config, callbacks) {
-            this.context = context;
-            this.callbacks = callbacks;
-            this.stats.trequest = performance.now();
-            const xhr = this.xhr = new XMLHttpRequest();
-            xhr.onreadystatechange = this.onreadystatechange.bind(this);
-            xhr.onprogress = this.onprogress.bind(this);
-            xhr.responseType = context.responseType || '';
-            xhr.open('GET', context.url, true);
-            
-            // Custom Headers ekleniyor
-            if (this.referrer) xhr.setRequestHeader('Referer', this.referrer);
-            if (this.userAgent) xhr.setRequestHeader('User-Agent', this.userAgent);
-
-            xhr.send();
-        };
-
-        HlsPlayerLoader.prototype.onreadystatechange = function(event) {
-            const xhr = event.currentTarget;
-            if (xhr.readyState === 4) {
-                this.stats.tload = performance.now();
-                if (xhr.status >= 200 && xhr.status < 300) {
-                    this.stats.loaded = this.stats.total = xhr.response.length || xhr.responseText.length || 0;
-                    this.callbacks.onSuccess(this.context, this.stats, { code: xhr.status, data: xhr.response || xhr.responseText });
-                } else {
-                    this.callbacks.onError(this.context, this.stats, { code: xhr.status, text: xhr.statusText });
-                }
-            }
-        };
-
-        HlsPlayerLoader.prototype.onprogress = function(event) {
-            if (event.lengthComputable) {
-                this.stats.loaded = event.loaded;
-                this.stats.total = event.total;
-                this.callbacks.onProgress(this.context, this.stats, event.loaded / event.total);
-            }
-        };
-
-        HlsPlayerLoader.prototype.abort = function() {
-            const xhr = this.xhr;
-            if (xhr && xhr.readyState !== 4) {
-                this.stats.tabort = performance.now();
-                xhr.abort();
-            }
-        };
-
+        // NOT: Custom HLS Loader KALDIRILDI
+        
         function showUI() {
             uiLayer.classList.add('visible');
             resetUITimer();
@@ -461,40 +404,22 @@
 
         const m3uList = `
 #EXTINF:-1 tvg-logo="https://i.hizliresim.com/lkl7u2r.png" group-title="TURKIYE ATOMSPOR", BEIN SPORTS 1
-#EXTVLCOPT:http-referrer=https://atomsportv480.top
-#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36
 https://hlssssss.levebelc5bas.workers.dev/https://corestream.ronaldovurdu.help//hls/bein-sports-1.m3u8
 #EXTINF:-1 tvg-logo="https://i.hizliresim.com/pvr9h26.png" group-title="TURKIYE ATOMSPOR", BEIN SPORTS 2
-#EXTVLCOPT:http-referrer=https://atomsportv480.top
-#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36
 https://hlssssss.levebelc5bas.workers.dev/https://corestream.ronaldovurdu.help//hls/bein-sports-2.m3u8
 #EXTINF:-1 tvg-logo="https://i.hizliresim.com/ozrfqya.png" group-title="TURKIYE ATOMSPOR", BEIN SPORTS 3
-#EXTVLCOPT:http-referrer=https://atomsportv480.top
-#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36
 https://hlssssss.levebelc5bas.workers.dev/https://corestream.ronaldovurdu.help//hls/bein-sports-3.m3u8
 #EXTINF:-1 tvg-logo="https://i.hizliresim.com/kbhvyeh.png" group-title="TURKIYE ATOMSPOR", BEIN SPORTS 4
-#EXTVLCOPT:http-referrer=https://atomsportv480.top
-#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36
 https://hlssssss.levebelc5bas.workers.dev/https://corestream.ronaldovurdu.help//hls/bein-sports-4.m3u8
 #EXTINF:-1 tvg-logo="https://i.hizliresim.com/35ndyy0.png" group-title="TURKIYE ATOMSPOR", S SPORT
-#EXTVLCOPT:http-referrer=https://atomsportv480.top
-#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36
 https://hlssssss.levebelc5bas.workers.dev/https://corestream.ronaldovurdu.help//hls/s-sport.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/mbF7SLI.png" group-title="TURKIYE ATOMSPOR", S SPORT 2
-#EXTVLCOPT:http-referrer=https://atomsportv480.top
-#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36
 https://hlssssss.levebelc5bas.workers.dev/https://corestream.ronaldovurdu.help//hls/s-sport-2.m3u8
 #EXTINF:-1 tvg-logo="https://i.hizliresim.com/nyyqh1f.png" group-title="TURKIYE ATOMSPOR", TİVİBU SPOR 1
-#EXTVLCOPT:http-referrer=https://atomsportv480.top
-#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36
 https://hlssssss.levebelc5bas.workers.dev/https://corestream.ronaldovurdu.help//hls/tivibu-spor-1.m3u8
 #EXTINF:-1 tvg-logo="https://i.hizliresim.com/mr3sv0j.png" group-title="TURKIYE ATOMSPOR", TİVİBU SPOR 2
-#EXTVLCOPT:http-referrer=https://atomsportv480.top
-#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36
 https://hlssssss.levebelc5bas.workers.dev/https://corestream.ronaldovurdu.help//hls/tivibu-spor-2.m3u8
 #EXTINF:-1 tvg-logo="https://i.hizliresim.com/rcz77hb.png" group-title="TURKIYE ATOMSPOR", TİVİBU SPOR 3
-#EXTVLCOPT:http-referrer=https://atomsportv480.top
-#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36
 https://hlssssss.levebelc5bas.workers.dev/https://corestream.ronaldovurdu.help//hls/tivibu-spor-3.m3u8
 
 #EXTINF:-1 tvg-id="" tvg-name="HT SPOR HD" tvg-logo="https://i.hizliresim.com/mmazkt2.png" group-title="TURKIYE STATIK",HT SPOR HD
@@ -533,9 +458,8 @@ https://vbtob9hyq58eiophct5qctxr2.medya.trt.com.tr/master_1080p.m3u8
         window.onload = () => {
             const lines = m3uList.split('\n');
             let t = {};
-            let currentReferrer = "";
-            let currentUserAgent = "";
-
+            // NOT: Referrer ve UserAgent artık M3U'dan okunmuyor.
+            
             lines.forEach(l => {
                 l=l.trim();
                 if(l.startsWith('#EXTINF')) {
@@ -549,15 +473,14 @@ https://vbtob9hyq58eiophct5qctxr2.medya.trt.com.tr/master_1080p.m3u8
                         if (commaSplit.length > 1) name = commaSplit[1].trim();
                     }
                     
+                    // Referrer ve UserAgent değerleri boş bırakıldı.
                     t = { name: name, logo: logoMatch ? logoMatch[1] : "", referrer: "", userAgent: "" };
-                    currentReferrer = "";
-                    currentUserAgent = "";
-                } else if (l.startsWith('#EXTVLCOPT:http-referrer=')) {
-                    currentReferrer = l.substring('#EXTVLCOPT:http-referrer='.length).trim();
-                } else if (l.startsWith('#EXTVLCOPT:http-user-agent=')) {
-                    currentUserAgent = l.substring('#EXTVLCOPT:http-user-agent='.length).trim();
-                } else if(l.startsWith('http')) {
-                    channels.push({...t, url: l, referrer: currentReferrer, userAgent: currentUserAgent});
+                    
+                } 
+                // NOT: #EXTVLCOPT satırlarını atlamak için kontrol eklenmedi.
+                else if(l.startsWith('http')) {
+                    // Sadece name, logo ve url kullanılıyor.
+                    channels.push({...t, url: l});
                 }
             });
             if(channels.length) { 
