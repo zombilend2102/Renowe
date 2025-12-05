@@ -8,11 +8,10 @@ warnings.filterwarnings('ignore')
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-    "Referer": "https://www.google.com/"
+    "Referer": "https://www.google.com/" # Varsayılan referer
 }
 
 # --- LOGO HARİTASI (SENİN LİSTEN) ---
-# AtomSporTV kanallarıyla eşleşecek şekilde genişletildi/ayıklandı.
 CHANNEL_LOGOS = {
     "BEIN SPORTS 1": "https://i.hizliresim.com/lkl7u2r.png",
     "BEIN SPORTS 2": "https://i.hizliresim.com/pvr9h26.png",
@@ -23,7 +22,7 @@ CHANNEL_LOGOS = {
     "TİVİBU SPOR 1": "https://i.hizliresim.com/nyyqh1f.png",
     "TİVİBU SPOR 2": "https://i.hizliresim.com/mr3sv0j.png",
     "TİVİBU SPOR 3": "https://i.hizliresim.com/rcz77hb.png",
-    # Statik kanallar için olanlar da tutuluyor:
+    "TİVİBU SPOR 4": "https://i.hizliresim.com/185gwih.png",
     "NBA TV": "https://i.ibb.co/VSSByY9/NBA-TV.png",
     "Tabii": "https://i.hizliresim.com/ojqbhcx.png",
     "Tabii 1": "https://i.ibb.co/0cYJYvB/tabi1.png",
@@ -37,53 +36,43 @@ CHANNEL_LOGOS = {
 DEFAULT_LOGO = "https://i.hizliresim.com/t75soiq.png"
 
 def get_logo(channel_name):
-    # İsim eşleştirmesi yaparken büyük/küçük harf duyarlılığını azaltmak için.
-    # AtomSporTV isimleri hep BÜYÜK harfli geldiği için bu önemli.
     normalized_name = channel_name.upper().strip()
     return CHANNEL_LOGOS.get(normalized_name, DEFAULT_LOGO)
 
 
-# --- ATOMSPOR TV TARAMA MANTIĞI ---
+# --- ATOMSPOR TV TARAMA MANTIĞI (OTO DOMAIN BULMA) ---
 
-START_URL = "https://url24.link/AtomSporTV"
-
-def get_base_domain():
-    """Ana domain'i bul"""
-    print("🔍 AtomSporTV için aktif domain aranıyor...")
+def find_active_atomsportv_domain():
+    """Belirtilen aralıkta (480-999) aktif AtomSporTV domainini bulur."""
+    print("🔍 Aktif AtomSporTV domaini aranıyor (480-999)...")
     
-    local_headers = HEADERS.copy()
-    local_headers['Referer'] = 'https://url24.link/'
+    # 480'den 999'a kadar domainleri tara
+    for i in range(480, 1000):
+        # NOT: .top yerine .xyz gibi farklı uzantılar da denenebilir. Şimdilik sadece .top kullanılıyor.
+        url = f"https://www.atomsportv{i}.top"
+        try:
+            # HEAD isteği ile domainin erişilebilirliğini kontrol et
+            response = requests.head(url, headers=HEADERS, timeout=3, allow_redirects=True)
+            
+            # 200 veya 300'lü yönlendirmeler başarılı sayılabilir
+            if 200 <= response.status_code < 400:
+                # Yönlendirme varsa son URL'yi al
+                final_url = response.url.rstrip('/')
+                print(f"✅ Aktif Domain Bulundu: {final_url}")
+                return final_url
+        except:
+            continue
     
-    try:
-        # 1. Adım: İlk Yönlendirmeyi Yakala
-        response = requests.get(START_URL, headers=local_headers, allow_redirects=False, timeout=10)
-        
-        if 'location' in response.headers:
-            location1 = response.headers['location']
-            print(f"   -> İlk Konum: {location1}")
-            
-            # 2. Adım: İkinci Yönlendirmeyi Yakala (Asıl Domain)
-            response2 = requests.get(location1, headers=local_headers, allow_redirects=False, timeout=10)
-            
-            if 'location' in response2.headers:
-                base_domain = response2.headers['location'].strip().rstrip('/')
-                print(f"✅ Ana Domain Bulundu: {base_domain}")
-                return base_domain
-        
-        # Varsayılan (yedek) domain
-        fallback_domain = "https://www.atomsportv480.top"
-        print(f"⚠️ Domain bulunamadı, varsayılan kullanılıyor: {fallback_domain}")
-        return fallback_domain
-        
-    except Exception as e:
-        fallback_domain = "https://www.atomsportv480.top"
-        print(f"❌ Domain hatası: {e}. Varsayılan kullanılıyor: {fallback_domain}")
-        return fallback_domain
+    # Eğer tarama sonucu bulunamazsa bir varsayılan dene
+    fallback_domain = "https://www.atomsportv480.top"
+    print(f"❌ Hiçbir domain aktif değil, varsayılan deneniyor: {fallback_domain}")
+    return fallback_domain
 
 def get_channel_m3u8(channel_id, base_domain):
-    """PHP mantığı ile m3u8 linkini al"""
+    """PHP mantığı ile m3u8 linkini alır."""
+    # REFERER burada base_domain olmalı
     local_headers = HEADERS.copy()
-    local_headers['Referer'] = base_domain # Referer güncellendi
+    local_headers['Referer'] = base_domain 
     
     try:
         # 1. matches?id= endpoint
@@ -97,24 +86,26 @@ def get_channel_m3u8(channel_id, base_domain):
             fetch_match = re.search(r'fetch\(\s*["\'](.*?)["\']', html)
         
         if fetch_match:
-            fetch_url = fetch_match.group(1).strip()
+            fetch_url_part = fetch_match.group(1).strip()
             
-            # 3. fetch URL'sine istek yap
             custom_headers = local_headers.copy()
             custom_headers['Origin'] = base_domain
             
+            # fetch URL'sini oluşturma
+            if not fetch_url_part.startswith('http'):
+                fetch_url = f"{base_domain}{fetch_url_part}"
+            else:
+                fetch_url = fetch_url_part
+                
+            # Eğer id ile bitmiyorsa id'yi ekle (Çoğu durumda PHP botu bunu istiyor)
             if not fetch_url.endswith(channel_id):
-                # Bazı siteler fetch url'ye id'yi otomatik ekler, eklemeyenler için birleştirme
-                fetch_url = f"{base_domain}{fetch_url}{channel_id}" 
+                fetch_url = fetch_url + channel_id
             
             response2 = requests.get(fetch_url, headers=custom_headers, timeout=10)
             fetch_data = response2.text
             
             # 4. m3u8 linkini bul
-            # Öncelikli Pattern (deismackanal)
             m3u8_match = re.search(r'"deismackanal":"(.*?)"', fetch_data)
-            
-            # İkinci Pattern (stream/url/source)
             if not m3u8_match:
                 m3u8_match = re.search(r'"(?:stream|url|source)":\s*"(.*?\.m3u8)"', fetch_data)
                 
@@ -125,15 +116,16 @@ def get_channel_m3u8(channel_id, base_domain):
         return None
         
     except Exception as e:
+        # print(f"Hata oluştu: {e}") # Hata mesajı çok yer kaplıyor, şimdilik gizleyelim.
         return None
 
 def fetch_atomsportv():
     print("--- AtomSporTV Bot Çalışıyor ---")
     
-    # 1. ADIM: Aktif Domaini Bul
-    base_domain = get_base_domain()
+    # 1. ADIM: Aktif Domaini Bul (Oto Tarama)
+    base_domain = find_active_atomsportv_domain()
     
-    # Sadece TV Kanalları listesi
+    # Dinamik olarak çekilecek kanallar
     tv_channels = [
         ("bein-sports-1", "BEIN SPORTS 1"),
         ("bein-sports-2", "BEIN SPORTS 2"),
@@ -144,7 +136,7 @@ def fetch_atomsportv():
         ("tivibu-spor-1", "TİVİBU SPOR 1"),
         ("tivibu-spor-2", "TİVİBU SPOR 2"),
         ("tivibu-spor-3", "TİVİBU SPOR 3"),
-        ("tivibu-spor-4", "TİVİBU SPOR 4"), # Bu da eklenebilir
+        ("tivibu-spor-4", "TİVİBU SPOR 4"),
     ]
     
     results = []
@@ -157,7 +149,8 @@ def fetch_atomsportv():
         if m3u8_url:
             logo_url = get_logo(name)
             
-            # HTML içine gömülecek format: #EXTINF... \n #EXTVLCOPT... \n URL
+            # #EXTVLCOPT ile referer ve user-agent bilgileri ekleniyor.
+            # BURASI ÖNEMLİ: base_domain bilgisi referer olarak eklenir.
             entry = (
                 f'#EXTINF:-1 tvg-logo="{logo_url}" group-title="TURKIYE ATOMSPOR", {name}\n'
                 f'#EXTVLCOPT:http-referrer={base_domain}\n'
@@ -173,38 +166,37 @@ def fetch_atomsportv():
     print(f"\n✅ AtomSporTV: {working_count} çalışan kanal hazırlandı.")
     return results
 
-# --- STATİK KANALLAR (DOKUNULMADI) ---
-# group-title değiştirildi (ATOMSPOR için)
+# --- STATİK KANALLAR ---
 STATIC_CHANNELS = """
-#EXTINF:-1 tvg-id="" tvg-name="HT SPOR HD" tvg-logo="https://i.hizliresim.com/mmazkt2.png" group-title="TURKIYE ATOMSPOR",HT SPOR HD
+#EXTINF:-1 tvg-id="" tvg-name="HT SPOR HD" tvg-logo="https://i.hizliresim.com/mmazkt2.png" group-title="TURKIYE STATIK",HT SPOR HD
 https://ciner.daioncdn.net/ht-spor/ht-spor.m3u8?app=web
-#EXTINF:-1 tvg-id="" tvg-name="NBA SPORTS HD" tvg-logo="https://i.ibb.co/VSSByY9/NBA-TV.png" group-title="TURKIYE ATOMSPOR",NBA SPORTS HD
+#EXTINF:-1 tvg-id="" tvg-name="NBA SPORTS HD" tvg-logo="https://i.ibb.co/VSSByY9/NBA-TV.png" group-title="TURKIYE STATIK",NBA SPORTS HD
 https://ww.dooballfree.vip/live/nba/playlist.m3u8
-#EXTINF:-1 tvg-id="" tvg-name="A SPOR HD" tvg-logo="https://i.ibb.co/NVcr0ST/A-SPOR.png" group-title="TURKIYE ATOMSPOR",A SPOR HD
+#EXTINF:-1 tvg-id="" tvg-name="A SPOR HD" tvg-logo="https://i.ibb.co/NVcr0ST/A-SPOR.png" group-title="TURKIYE STATIK",A SPOR HD
 https://rnttwmjcin.turknet.ercdn.net/lcpmvefbyo/aspor/aspor.m3u8
-#EXTINF:-1 tvg-id="" tvg-name="TRT SPOR HD" tvg-logo="https://i.ibb.co/H4k7r31/TRT-SPOR.png" group-title="TURKIYE ATOMSPOR",TRT SPOR HD
+#EXTINF:-1 tvg-id="" tvg-name="TRT SPOR HD" tvg-logo="https://i.ibb.co/H4k7r31/TRT-SPOR.png" group-title="TURKIYE STATIK",TRT SPOR HD
 https://tv-trtspor1.medya.trt.com.tr/master.m3u8
-#EXTINF:-1 tvg-id="" tvg-name="TRT SPOR ★ HD" tvg-logo="https://i.ibb.co/rH9TkLx/TRT-SPOR-YILDIZ.png" group-title="TURKIYE ATOMSPOR",TRT SPOR ★ HD
+#EXTINF:-1 tvg-id="" tvg-name="TRT SPOR ★ HD" tvg-logo="https://i.ibb.co/rH9TkLx/TRT-SPOR-YILDIZ.png" group-title="TURKIYE STATIK",TRT SPOR ★ HD
 https://tv-trtspor2.medya.trt.com.tr/master.m3u8
-#EXTINF:-1 tvg-id="" tvg-name="TJK SPOR HD" tvg-logo="https://i.ibb.co/WVwxNCY/TJK-TV.png" group-title="TURKIYE ATOMSPOR",TJK SPOR HD
+#EXTINF:-1 tvg-id="" tvg-name="TJK SPOR HD" tvg-logo="https://i.ibb.co/WVwxNCY/TJK-TV.png" group-title="TURKIYE STATIK",TJK SPOR HD
 https://tjktv-live.tjk.org/tjktv_1080p.m3u8
-#EXTINF:-1 tvg-id="" tvg-name="FB SPOR HD" tvg-logo="https://i.ibb.co/5kTcBJM/FB-TV.png" group-title="TURKIYE ATOMSPOR",FB SPOR HD
+#EXTINF:-1 tvg-id="" tvg-name="FB SPOR HD" tvg-logo="https://i.ibb.co/5kTcBJM/FB-TV.png" group-title="TURKIYE STATIK",FB SPOR HD
 https://fbtv.fenerbahce.org/fenerbahcetv.stream_720p/playlist.m3u8
-#EXTINF:-1 tvg-id="" tvg-name="SPORTS HD" tvg-logo="https://i.ibb.co/VxHMGyp/SportsTV.png" group-title="TURKIYE ATOMSPOR",SPORTS HD
+#EXTINF:-1 tvg-id="" tvg-name="SPORTS HD" tvg-logo="https://i.ibb.co/VxHMGyp/SportsTV.png" group-title="TURKIYE STATIK",SPORTS HD
 https://live.sportstv.com.tr/hls/low/sportstv_fhd/index.m3u8
-#EXTINF:-1 tvg-id="" tvg-name="Tabii Sport HD" tvg-logo="https://i.hizliresim.com/ojqbhcx.png" group-title="TURKIYE ATOMSPOR",Tabii Sport HD
+#EXTINF:-1 tvg-id="" tvg-name="Tabii Sport HD" tvg-logo="https://i.hizliresim.com/ojqbhcx.png" group-title="TURKIYE STATIK",Tabii Sport HD
 https://beert7sqimrk0bfdupfgn6qew.medya.trt.com.tr/master.m3u8
-#EXTINF:-1 tvg-id="" tvg-name="Tabii Sport 1 HD" tvg-logo="https://i.ibb.co/0cYJYvB/tabi1.png" group-title="TURKIYE ATOMSPOR",Tabii Sport 1 HD
+#EXTINF:-1 tvg-id="" tvg-name="Tabii Sport 1 HD" tvg-logo="https://i.ibb.co/0cYJYvB/tabi1.png" group-title="TURKIYE STATIK",Tabii Sport 1 HD
 https://iaqzu4szhtzeqd0edpsayinle.medya.trt.com.tr/master_1080p.m3u8
-#EXTINF:-1 tvg-id="" tvg-name="Tabii Sport 2 HD" tvg-logo="https://i.ibb.co/VNpTh0J/tabi2.png" group-title="TURKIYE ATOMSPOR",Tabii Sport 2 HD
+#EXTINF:-1 tvg-id="" tvg-name="Tabii Sport 2 HD" tvg-logo="https://i.ibb.co/VNpTh0J/tabi2.png" group-title="TURKIYE STATIK",Tabii Sport 2 HD
 https://klublsslubcgyiz7zqt5bz8il.medya.trt.com.tr/master_1080p.m3u8
-#EXTINF:-1 tvg-id="" tvg-name="Tabii Sport 3 HD" tvg-logo="https://i.ibb.co/D7NwYrT/tabi3.png" group-title="TURKIYE ATOMSPOR",Tabii Sport 3 HD
+#EXTINF:-1 tvg-id="" tvg-name="Tabii Sport 3 HD" tvg-logo="https://i.ibb.co/D7NwYrT/tabi3.png" group-title="TURKIYE STATIK",Tabii Sport 3 HD
 https://ujnf69op16x2fiiywxcnx41q8.medya.trt.com.tr/master_1080p.m3u8
-#EXTINF:-1 tvg-id="" tvg-name="Tabii Sport 4 HD" tvg-logo="https://i.ibb.co/2h6yJJt/tabi4.png" group-title="TURKIYE ATOMSPOR",Tabii Sport 4 HD
+#EXTINF:-1 tvg-id="" tvg-name="Tabii Sport 4 HD" tvg-logo="https://i.ibb.co/2h6yJJt/tabi4.png" group-title="TURKIYE STATIK",Tabii Sport 4 HD
 https://bfxy3jgeydpbphtk8qfqwm3hr.medya.trt.com.tr/master_1080p.m3u8
-#EXTINF:-1 tvg-id="" tvg-name="Tabii Sport 5 HD" tvg-logo="https://i.ibb.co/QFZnFHg/tabi5.png" group-title="TURKIYE ATOMSPOR",Tabii Sport 5 HD
+#EXTINF:-1 tvg-id="" tvg-name="Tabii Sport 5 HD" tvg-logo="https://i.ibb.co/QFZnFHg/tabi5.png" group-title="TURKIYE STATIK",Tabii Sport 5 HD
 https://z3mmimwz148csv0vaxtphqspf.medya.trt.com.tr/master_1080p.m3u8
-#EXTINF:-1 tvg-id="" tvg-name="Tabii Sport 6 HD" tvg-logo="https://i.ibb.co/s386Cn7/tabi6.png" group-title="TURKIYE ATOMSPOR",Tabii Sport 6 HD
+#EXTINF:-1 tvg-id="" tvg-name="Tabii Sport 6 HD" tvg-logo="https://i.ibb.co/s386Cn7/tabi6.png" group-title="TURKIYE STATIK",Tabii Sport 6 HD
 https://vbtob9hyq58eiophct5qctxr2.medya.trt.com.tr/master_1080p.m3u8
 """
 
@@ -438,7 +430,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 };
                 
                 hls = new Hls(config);
-                hls.config.pLoader = (context) => new HlsPlayerLoader(context, ch.referrer, ch.userAgent);
+                // Custom Loader ile Referrer/User-Agent başlıkları gönderiliyor
+                hls.config.loader = function(context) { 
+                    return new HlsPlayerLoader(context, ch.referrer, ch.userAgent); 
+                };
+
                 hls.loadSource(ch.url);
                 hls.attachMedia(video);
                 hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -473,7 +469,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             iconPlay.classList.add('hidden'); iconPause.classList.remove('hidden');
         }
 
-        // Custom HLS Loader for Referrer/User-Agent Support
+        // Custom HLS Loader for Referrer/User-Agent Support (PHP botundan gelen bilgiler için)
         function HlsPlayerLoader(context, referrer, userAgent) {
             this.context = context;
             this.stats = { trequest: performance.now(), tfirst: 0, tload: 0, tabort: 0, loaded: 0, total: 0 };
@@ -570,7 +566,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         function updateFocusVisuals() {
             document.querySelectorAll('.focused').forEach(el => el.classList.remove('focused'));
             if (focusArea === 'controls') {
-                // Kontroller 0: Rewind, 1: Play/Pause, 2: Forward, 3: Fit
                 if (focusedControlIndex === 0) document.getElementById('btn-rewind').classList.add('focused');
                 if (focusedControlIndex === 1) document.getElementById('btn-play').classList.add('focused');
                 if (focusedControlIndex === 2) document.getElementById('btn-forward').classList.add('focused');
@@ -588,7 +583,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         document.addEventListener('keydown', (e) => {
             if (focusArea !== 'none') resetUITimer();
             
-            // Eğer arayüz görünmüyorsa, sadece Ok/Enter gösterir, yukarı/aşağı kanal değiştirir.
             if (!uiLayer.classList.contains('visible') && e.key !== 'Enter' && e.key !== 'Ok') {
                 if (e.key === 'ArrowUp' || e.key === 'ChannelUp') {
                     playChannel(currentChannelIndex - 1); 
@@ -605,22 +599,20 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 case 'ArrowUp':
                 case 'ChannelUp':
                     if (focusArea === 'none') {
-                        // Eğer UI yoksa, sadece kanal değiştirme
                         playChannel(currentChannelIndex - 1); 
                     } else if (focusArea === 'channels') {
                         focusArea = 'controls';
-                        focusedControlIndex = 1; // Ortadaki Play tuşuna odaklan
+                        focusedControlIndex = 1; 
                         updateFocusVisuals();
                     }
                     break;
                 case 'ArrowDown':
                 case 'ChannelDown':
                     if (focusArea === 'none') {
-                        // Eğer UI yoksa, sadece kanal değiştirme
                         playChannel(currentChannelIndex + 1); 
                     } else if (focusArea === 'controls') {
                         focusArea = 'channels';
-                        focusedChannelIndex = currentChannelIndex; // Oynatılan kanala odaklan
+                        focusedChannelIndex = currentChannelIndex; 
                         updateFocusVisuals();
                     }
                     break;
@@ -646,13 +638,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 case 'Ok':
                     if (focusArea === 'none') {
                         showUI();
-                        focusArea = 'channels'; // Default olarak kanallara odaklan
+                        focusArea = 'channels'; 
                         focusedChannelIndex = currentChannelIndex;
                         updateFocusVisuals();
                     } else {
                         if (focusArea === 'channels') {
                             playChannel(focusedChannelIndex);
-                            hideUI(); // Kanal seçildikten sonra arayüzü gizle
+                            hideUI(); 
                         }
                         else if (focusArea === 'controls') {
                             if (focusedControlIndex === 0) seek(-10);
@@ -697,9 +689,9 @@ __M3U_CONTENT__
                     currentReferrer = "";
                     currentUserAgent = "";
                 } else if (l.startsWith('#EXTVLCOPT:http-referrer=')) {
-                    currentReferrer = l.split('=')[1].trim();
+                    currentReferrer = l.substring('#EXTVLCOPT:http-referrer='.length).trim();
                 } else if (l.startsWith('#EXTVLCOPT:http-user-agent=')) {
-                    currentUserAgent = l.split('=')[1].trim();
+                    currentUserAgent = l.substring('#EXTVLCOPT:http-user-agent='.length).trim();
                 } else if(l.startsWith('http')) {
                     channels.push({...t, url: l, referrer: currentReferrer, userAgent: currentUserAgent});
                 }
@@ -715,17 +707,17 @@ __M3U_CONTENT__
 """
 
 def main():
-    # 1. AtomSporTV Botu Çalıştır (Linkleri Al)
+    # 1. Dinamik AtomSporTV linklerini al (Oto domain tarama dahil)
     dynamic_list = fetch_atomsportv()
 
-    # 2. String Haline Getir
+    # 2. Dinamik listeyi birleştir
     dynamic_m3u_content = "\n".join(dynamic_list)
     
-    # 3. Statik Kanallarla Birleştir
+    # 3. Statik kanallarla birleştirme işlemi.
+    # ÖNCE DİNAMİK, SONRA STATİK kanallar eklenir. Bu, dinamik kanalların listenin en üstünde olmasını sağlar.
     final_m3u_content = dynamic_m3u_content + "\n" + STATIC_CHANNELS
 
     # 4. HTML Şablonuna Göm
-    # HTML kodundaki HLS.js Loader kısmı, #EXTVLCOPT referer/user-agent değerlerini okuyacak şekilde güncellendi.
     final_html = HTML_TEMPLATE.replace("__M3U_CONTENT__", final_m3u_content)
 
     # 5. Dosyayı Kaydet
@@ -733,11 +725,10 @@ def main():
     with open(output_filename, "w", encoding="utf-8") as f:
         f.write(final_html)
     
-    # Statik kanalların sayısı (elle sayıldı)
     static_channel_count = STATIC_CHANNELS.count('#EXTINF')
     total_channels = len(dynamic_list) + static_channel_count 
     
-    print(f"🎯 İŞLEM TAMAMLANDI! '{output_filename}' dosyası oluşturuldu.")
+    print(f"🎯 İŞLEM BAŞARILI! OTO Domain taraması yapıldı ve dinamik kanallar listenin en üstünde olacak şekilde '{output_filename}' dosyası oluşturuldu.")
     print(f"📊 Toplam Kanal Sayısı: {total_channels}")
 
 if __name__ == "__main__":
