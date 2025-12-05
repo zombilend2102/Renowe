@@ -19,7 +19,7 @@ LOGO_MAP = {
     "beIN Sports 2": "https://i.hizliresim.com/pvr9h26.png",
     "beIN Sports 3": "https://i.hizliresim.com/ozrfqya.png",
     "beIN Sports 4": "https://i.hizliresim.com/kbhvyeh.png",
-    "beIN Sports 5": "https://i.hizliresim.com/lkl7u2r.png",
+    "beIN Sports 5": "https://i.hizliresim.com/l5huh73.png",
     "beIN Sports Max 1": "https://i.hizliresim.com/a6kdghr.png",
     "beIN Sports Max 2": "https://i.hizliresim.com/hp2j3mg.png",
     "S Sport 1": "https://i.hizliresim.com/35ndyy0.png",
