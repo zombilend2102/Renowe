@@ -13,7 +13,7 @@ HEADERS = {
 
 # --- LOGO HARİTASI (SENİN LİSTEN) ---
 CHANNEL_LOGOS = {
-    "Canlı Maç İzle": "https://i.hizliresim.com/8xzjgqv.jpg",
+    "Canlı Maç İzle": "https://i.hizliresim.com/lkl7u2r.png",
     "beIN Sports 1": "https://i.hizliresim.com/lkl7u2r.png",
     "beIN Sports 2": "https://i.hizliresim.com/pvr9h26.png",
     "beIN Sports 3": "https://i.hizliresim.com/ozrfqya.png",
