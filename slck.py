@@ -641,7 +641,7 @@ def main():
     # HTML şablonunu doldur
     final_html = HTML_TEMPLATE.replace("__M3U_CONTENT__", final_m3u_content)
 
-    with open("goals.html", "w", encoding="utf-8") as f:
+    with open("slck.html", "w", encoding="utf-8") as f:
         f.write(final_html)
     
     print(f"✅ slck.html oluşturuldu. Toplam Kanal: {len(list_selcuk) + 17}")
