@@ -8,13 +8,16 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Ek: Gerekliyse izinleri belirtin
+    permissions:
+      contents: write # Token'a depoya yazma izni verir
 
     steps:
     - name: Depoyu Çek (Checkout)
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4 # v4'e güncellendi
 
     - name: Python Kurulumu
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5 # v5'e güncellendi (önerilen)
       with:
         python-version: '3.9'
 
@@ -26,9 +29,10 @@ jobs:
     - name: Scripti Çalıştır (slck.py)
       run: python slck.py
 
-    - name: Değişiklikleri Commit ve Push Yap
-      run: |
-        git config --global user.name 'GitHub Action'
-        git config --global user.email 'action@github.com'
-        git add slck.html
-        git diff --quiet && git diff --staged --quiet || (git commit -m "Kanallar Güncellendi $(date)" && git push)
+    # Commit ve Push İşlemi İçin Daha Güvenilir Yöntem
+    - name: Değişiklikleri Otomatik Commit Yap
+      uses: stefanzweifel/git-auto-commit-action@v5 # Özel Action kullanıldı
+      with:
+        commit_message: "Kanallar Güncellendi (Otomatik Commit) $(date)"
+        files: slck.html # Sadece bu dosyayı ekle
+        skip_dirty_check: true # Değişiklik olmasa bile başarılı sayılabilir
