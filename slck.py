@@ -644,7 +644,7 @@ def main():
     with open("goals.html", "w", encoding="utf-8") as f:
         f.write(final_html)
     
-    print(f"✅ goals.html oluşturuldu. Toplam Kanal: {len(list_selcuk) + 17}")
+    print(f"✅ slck.html oluşturuldu. Toplam Kanal: {len(list_selcuk) + 17}")
 
 if __name__ == "__main__":
     main()
