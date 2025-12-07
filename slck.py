@@ -38,7 +38,6 @@ LOGO_MAP = {
 
 # Selçuk ID'lerini Logo Haritasındaki isimlere çeviren sözlük
 SELCUK_NAMES = {
-    "selcukobs1": "beIN Sports 1",
     "selcukbeinsports1": "beIN Sports 1",
     "selcukbeinsports2": "beIN Sports 2",
     "selcukbeinsports3": "beIN Sports 3",
