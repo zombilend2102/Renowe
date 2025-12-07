@@ -8,16 +8,17 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # Ek: Gerekliyse izinleri belirtin
+    
+    # Otomatik Commit/Push işleminin çalışması için izinlerin verilmesi kritik.
     permissions:
-      contents: write # Token'a depoya yazma izni verir
+      contents: write 
 
     steps:
     - name: Depoyu Çek (Checkout)
-      uses: actions/checkout@v4 # v4'e güncellendi
+      uses: actions/checkout@v4 # Güncel v4 önerilir
 
     - name: Python Kurulumu
-      uses: actions/setup-python@v5 # v5'e güncellendi (önerilen)
+      uses: actions/setup-python@v5 # Güncel v5 önerilir
       with:
         python-version: '3.9'
 
@@ -29,10 +30,11 @@ jobs:
     - name: Scripti Çalıştır (slck.py)
       run: python slck.py
 
-    # Commit ve Push İşlemi İçin Daha Güvenilir Yöntem
     - name: Değişiklikleri Otomatik Commit Yap
-      uses: stefanzweifel/git-auto-commit-action@v5 # Özel Action kullanıldı
+      uses: stefanzweifel/git-auto-commit-action@v5
       with:
         commit_message: "Kanallar Güncellendi (Otomatik Commit) $(date)"
-        files: slck.html # Sadece bu dosyayı ekle
-        skip_dirty_check: true # Değişiklik olmasa bile başarılı sayılabilir
+        # HATA DÜZELTİLDİ: 'files' yerine 'file_pattern' kullanıldı.
+        file_pattern: slck.html 
+        # Depoda değişiklik olmasa bile, Action'ın başarılı sayılması için eklenebilir.
+        # skip_dirty_check: true
