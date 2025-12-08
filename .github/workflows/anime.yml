@@ -1,0 +1,36 @@
+name: Update anime TV
+
+on:
+  schedule:
+    - cron: '0 1 * * *'  # Günde bir kez çalışır (UTC 01:00 → Türkiye saati 04:00)
+  workflow_dispatch:      # Manuel tetikleme
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write 
+
+    steps:
+    - name: Depoyu Çek (Checkout)
+      uses: actions/checkout@v4
+
+    - name: Python Kurulumu
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.9'
+
+    - name: Gereklilikleri Yükle
+      run: |
+        python -m pip install --upgrade pip
+        pip install requests
+
+    - name: Scripti Çalıştır (anime.py)
+      run: python anime.py
+
+    - name: Değişiklikleri Otomatik Commit Yap
+      uses: stefanzweifel/git-auto-commit-action@v5
+      with:
+        commit_message: "Anime Kanalları Güncellendi (Otomatik Commit) $(date)"
+        file_pattern: anime.html
