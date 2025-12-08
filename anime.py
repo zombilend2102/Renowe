@@ -411,7 +411,7 @@ function resetSeriesSearch() {{
 
 # HTML dosyasını kaydet
 try:
-    dosya_adi = "titan_yerli_vod.html"
+    dosya_adi = "anime.html"
     with open(dosya_adi, "w", encoding="utf-8") as f:
         f.write(html_template)
     
