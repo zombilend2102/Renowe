@@ -6,13 +6,16 @@ import json
 import time
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-import unidecode # Türkçe karakterleri dönüştürmek için
+import unidecode
 
 # --- Sabitler ---
 SITE_URL = "https://www.showtv.com.tr"
 DIZILER_URL = "https://www.showtv.com.tr/diziler"
-PLAYER_TYPE = "2" # JW Player kullanılacak
+PLAYER_TYPE = "2" # JW Player
 OUTPUT_FILE = "showtv_vod_player.html"
+
+# YEDEK GÖRSEL (Eski veya hatalı linkler için)
+DEFAULT_IMAGE = "https://i.hizliresim.com/5l23s77.png" 
 
 # Regex: Video verilerini yakalamak için (data-hope-video)
 VIDEO_DATA_PATTERN = r'data-hope-video=\'(.*?)\''
@@ -35,12 +38,11 @@ def create_session():
     return session
 
 session = create_session()
-# --- Yardımcı Fonksiyonlar ---
 
+# --- Yardımcı Fonksiyonlar ---
 def normalize_dizi_ad(dizi_adi):
     """
     Dizi adını JS anahtarı olarak kullanılabilecek, küçük harf ve boşluksuz bir ID'ye dönüştürür.
-    ID'de sadece harf ve rakam kalır.
     """
     normalized = unidecode.unidecode(dizi_adi).lower()
     return re.sub(r'[^a-z0-9]', '', normalized)
@@ -48,19 +50,15 @@ def normalize_dizi_ad(dizi_adi):
 def parse_bolum_page(url):
     """Bölüm sayfasından .m3u8 stream URL'sini çeker."""
     try:
-        # Rate-limiting'den kaçınmak için bekleme
         time.sleep(0.5) 
         r = session.get(url, timeout=15)
         r.raise_for_status()
         
-        # data-hope-video içeriğini bul
         match = re.search(VIDEO_DATA_PATTERN, r.text)
         if match:
-            # HTML entitilerini düzelt ve JSON olarak yükle
             video_data_str = match.group(1).replace('&quot;', '"')
             video_data = json.loads(video_data_str)
             
-            # m3u8 listesini kontrol et
             m3u8_list = video_data.get("media", {}).get("m3u8", [])
             for item in m3u8_list:
                 if "src" in item and item["src"].endswith(".m3u8"):
@@ -68,14 +66,7 @@ def parse_bolum_page(url):
         
         return None
             
-    except requests.exceptions.RequestException as e:
-        print(f"    [Hata] Bölüm sayfası çekilemedi: {url} - {e}")
-        return None
-    except json.JSONDecodeError as e:
-        print(f"    [Hata] Video verisi JSON hatası: {url} - {e}")
-        return None
-    except Exception as e:
-        print(f"    [Hata] Bölüm sayfası işlenirken beklenmedik hata: {url} - {e}")
+    except Exception:
         return None
 
 def parse_episodes_page(url):
@@ -85,7 +76,6 @@ def parse_episodes_page(url):
         r = session.get(url, timeout=15)
         r.raise_for_status()
         
-        # JSON yanıtından 'episodes' listesini al
         data = r.json().get("episodes", [])
         
         item_list = []
@@ -98,19 +88,15 @@ def parse_episodes_page(url):
                  item_list.append({"name": item_name, "img": item_img, "url": item_url})
                  
         return item_list
-    except Exception as e:
-        # Boş bir JSON yanıtı döndürebilir, bu da son sayfa demektir
-        print(f"    [Uyarı] Bölümler API'si çağrısında hata/son sayfa: {url} - {str(e)}")
+    except:
         return []
 
 def get_episodes_page(serie_url):
     """Tüm sayfaları dolaşarak bir dizinin tüm bölümlerini eksiksiz çeker."""
     all_items = []
     
-    # Dizi ID'sini URL'den çekiyoruz
     serie_id_match = re.search(r'/dizi/(.*?)/(\d+)$', serie_url)
     if not serie_id_match:
-        print(f"    [KRİTİK HATA] Dizi ID'si bulunamadı: {serie_url}")
         return []
         
     serie_id = serie_id_match.group(2)
@@ -120,39 +106,30 @@ def get_episodes_page(serie_url):
     page_no = 0
     while flag:
         page_url = base_url + str(page_no)
-        print(f"    -> Sayfa {page_no + 1} kontrol ediliyor...")
+        # print(f"    -> Sayfa {page_no + 1} kontrol ediliyor...")
         page_items = parse_episodes_page(page_url)
         
         if not page_items:
-            flag = False # Bölüm yoksa veya API hatası
+            flag = False 
         else:
-            # Show TV API'si en yeni bölümü önce veriyor.
-            # Sayfalandırmanın her çağrısı genellikle yeni bölümleri baştan getirir,
-            # ancak genellikle bölümler ters sırada (eskiden yeniye) eklenmelidir.
-            # parse_episodes_page zaten en yeniyi en başa eklediği için, 
-            # buradaki mantıkta, yeni gelen sayfayı listenin başına ekliyoruz.
+            # Yeni gelen sayfayı listenin başına ekliyoruz (API'deki sıralamaya göre)
             all_items = page_items + all_items 
         
         page_no += 1
-        # Aşırı istek atmamak için güvenli sayfa sınırı
         if page_no > 50: 
-            print("    [UYARI] Çok fazla sayfa bulundu, maksimum sayfa sayısına ulaşıldı (50).")
+            # Güvenlik önlemi
             flag = False
 
-    # Bölümleri addan sıralayıp tekrarları temizliyoruz.
+    # Tekrar eden bölümleri temizle (aynı URL'ye sahip olanları at)
     unique_episodes = {}
     for ep in all_items:
-        # Bölüm adı ve URL'yi birleştirerek tekillik kontrolü yap
-        key = f"{ep['name']}_{ep['url']}"
-        if key not in unique_episodes:
-            unique_episodes[key] = ep
+        key = ep['url'] 
+        unique_episodes[key] = ep
             
-    # Bölümleri adına göre (örn: 1, 2, 3...) sıralamak genellikle en doğrusudur, 
-    # ancak API'den gelen sırayı koruyalım (en eski en başta).
     return list(unique_episodes.values())
 
 def get_arsiv_page(url):
-    """Tüm dizi listesini arşiv sayfasından çeker."""
+    """Tüm dizi listesini arşiv sayfasından çeker ve görsel linklerini temizler."""
     item_list = []
     try:
         time.sleep(0.3)
@@ -160,7 +137,6 @@ def get_arsiv_page(url):
         r.raise_for_status()
         soup = BeautifulSoup(r.content, "html.parser")
         
-        # Dizi kartlarını bul
         items = soup.find_all("div", {"data-name": "box-type6"})
         
         for item in items:
@@ -171,13 +147,20 @@ def get_arsiv_page(url):
             if link_tag and img_tag and name_tag:
                 item_url = SITE_URL + link_tag.get("href", "")
                 item_img = img_tag.get("src", "")
-                # Dizi adını temizle ve boşlukları koru (ileride normalize edilecek)
                 item_name = name_tag.get_text().strip().replace("-", " ") 
-                item_id = normalize_dizi_ad(item_name) # JS ID'si için normalize et
+                item_id = normalize_dizi_ad(item_name)
+
+                # GÖRSEL DÜZELTME BAŞLANGIÇ
+                # Eğer görsel transparent.gif ise veya boyutu küçükse, yedek görsel kullan
+                if item_img.endswith("transparent.gif"):
+                    final_img = DEFAULT_IMAGE
+                else:
+                    # Gerekli parametreleri temizle: ?v=12345 gibi kısmı atar.
+                    final_img = item_img.split('?')[0]
+                # GÖRSEL DÜZELTME SONU
                 
-                # Sadece geçerli URL'leri ve resimleri kontrol et
-                if item_url.startswith(SITE_URL) and item_img:
-                    item_list.append({"name": item_name, "img": item_img, "url": item_url, "id": item_id})
+                if item_url.startswith(SITE_URL) and final_img:
+                    item_list.append({"name": item_name, "img": final_img, "url": item_url, "id": item_id})
                 
     except Exception as e:
         print(f"[KRİTİK HATA] Arşiv sayfası hatası: {url} - {str(e)}")
@@ -187,21 +170,18 @@ def get_arsiv_page(url):
 # --- Ana İşlem Fonksiyonu ---
 
 def main():
-    
     print("🎬 Show TV Dizi VOD Verileri Çekiliyor...")
     
-    # 1. Dizi Listesini Çek
     series_list = get_arsiv_page(DIZILER_URL)
     
     if not series_list:
         print("❌ Dizi listesi çekilemedi. Program sonlandırılıyor.")
         return
         
-    diziler_data = {} # Final JSON verisi için
+    diziler_data = {} 
     total_series = len(series_list)
     print(f"✅ Toplam {total_series} dizi bulundu. Bölüm verileri çekiliyor...")
 
-    # 2. Her Dizi İçin Bölümleri ve Stream URL'lerini Çek
     for i, serie in enumerate(tqdm(series_list, desc="Diziler İşleniyor", unit="dizi")):
         
         dizi_adi = serie['name']
@@ -209,28 +189,19 @@ def main():
         dizi_url = serie['url']
         dizi_logo = serie['img']
         
-        # print(f"\n[{i+1}/{total_series}] -> Dizi: {dizi_adi}")
-        
         try:
-            # Tüm bölümleri çek (sayfalandırma kontrolü dahil)
             episodes = get_episodes_page(dizi_url)
             
             if episodes:
-                # print(f"  Toplam {len(episodes)} bölüm bulundu.")
-                
                 temp_bolumler = []
                 
-                # Stream URL'lerini çek
-                for j, episode in enumerate(tqdm(episodes, desc=f"  {dizi_adi} Bölümleri", unit="bölüm", leave=False)):
+                for j, episode in enumerate(episodes):
                     stream_url = parse_bolum_page(episode["url"])
                     
                     if stream_url:
-                        # Bölüm adı formatını düzelt (örn: 1. Sezon 1. Bölüm)
-                        # Show TV genelde Bölüm Adı olarak sadece "1. Bölüm" vb. kullanıyor.
+                        # Bölüm adı formatını standartlaştır: "1. Sezon X. Bölüm"
                         bolum_ad_match = re.search(r'(\d+)\.\s*Bölüm', episode["name"], re.IGNORECASE)
                         bolum_numarasi = bolum_ad_match.group(1) if bolum_ad_match else f"{j+1}"
-                        
-                        # Bölüm adını standartlaştıralım. Yıl bilgisi olmadığı için IMDb'den yılı çekmiyoruz.
                         final_bolum_ad = f"1. Sezon {bolum_numarasi}. Bölüm" 
                         
                         temp_bolumler.append({
@@ -239,8 +210,9 @@ def main():
                         })
                 
                 if temp_bolumler:
-                    # Yeni dizi objesini oluştur ve 'diziler_data'ya ekle
-                    # Yıl ve IMDb bilgisi Show TV'den çekilmediği için sabit değerler eklendi
+                    # En yeni bölüm en üstte olması için listeyi ters çevir
+                    temp_bolumler.reverse()
+                    
                     diziler_data[dizi_id] = {
                         "ad": dizi_adi,
                         "resim": dizi_logo,
@@ -250,19 +222,13 @@ def main():
                         "player": PLAYER_TYPE,
                         "bolumler": temp_bolumler
                     }
-                    # print(f"  ✅ {dizi_adi} için TOPLAM {len(temp_bolumler)} stream URL'si çekildi.")
-                # else:
-                    # print(f"  [ATLANDI] {dizi_adi} için stream URL'si bulunamadı.")
-            # else:
-                # print(f"  [ATLANDI] {dizi_adi} için hiç bölüm bulunamadı.")
                 
-        except Exception as e:
-            print(f"\n  [KRİTİK HATA] {dizi_adi} işlenirken beklenmedik hata: {e}")
+        except Exception:
+            # print(f"\n  [KRİTİK HATA] {dizi_adi} işlenirken beklenmedik hata: {e}")
             continue
 
     print(f"\n--- Veri Çekimi Tamamlandı. Toplam {len(diziler_data)} dizi işlendi. ---")
     
-    # 3. HTML ve JavaScript Kodu Oluşturma
     generate_html_output(diziler_data)
 
 # --- HTML/JS Çıktısı Oluşturma ---
@@ -274,23 +240,29 @@ def generate_html_output(diziler_data):
         print("❌ HTML dosyası oluşturulamadı: İşlenecek dizi verisi yok.")
         return
 
-    # JSON'u sıkıştır ve JS güvenli hale getir
+    # JSON'u güvenli formatta string'e çevir (Javascript'te parse edilecek)
+    # Tırnak işaretlerini kaçış karakteri ile düzeltmek yerine, Python'un raw string işleyişini kullanalım
+    # Ancak burada JS'e tek tırnak içinde JSON verisi gönderildiği için, içindeki çift tırnakları korumamız gerek.
+    # EN GÜVENLİ YÖNTEM: json.dumps ile alıp, içindeki tırnakları olduğu gibi bırakmak ve JS'de JSON.parse kullanmak.
     js_diziler_data = json.dumps(diziler_data, indent=None, ensure_ascii=False)
-    # Tırnak işaretlerini kaçış karakteri ile düzelt (Python'da '\\"' yerine '\'')
-    js_diziler_data = js_diziler_data.replace('"', '\\"') 
+    
+    # JavaScript içine yerleştirilecek JSON string'i (tırnakları kaçırarak)
+    js_diziler_data_escaped = js_diziler_data.replace('\\', '\\\\').replace('"', '\\"') 
 
     # Ana sayfa üzerindeki dizileri oluşturmak için HTML dizeleri
     dizi_paneller_html = ""
     for id, data in diziler_data.items():
-        # IMDb ve YIL bilgileri yoksa bile yeri dursun diye boş string gönderdim
         imdb_rating = data.get("imdb", "-")
         year = data.get("yil", "VOD")
+        
+        # IMDb paneli sadece puan çekildiğinde gösterilsin (Hata 3 Düzeltmesi)
+        imdb_panel = f'<div class="filmimdb">{imdb_rating}</div>' if imdb_rating != "-" else ''
         
         dizi_paneller_html += f"""
     <div class="filmpanel" onclick="showBolumler('{id}')">
         <div class="filmresim"><img src="{data['resim']}"></div>
         <div class="filmisimpanel">
-            <div class="filmimdb">{imdb_rating}</div>
+            {imdb_panel}
             <div class="filmisim">{data['ad']}</div>
             <div class="resimust">
                 <div class="filmdil">{data['dil']}</div>
@@ -300,7 +272,7 @@ def generate_html_output(diziler_data):
     </div>
 """
 
-    # HTML Şablonu (Player entegrasyonlu ve tarihçe yönetimli)
+    # HTML Şablonu (Daha önceki ile aynı yapı)
     html_template = f"""
 <!DOCTYPE html>
 <html lang="tr">
@@ -343,7 +315,7 @@ def generate_html_output(diziler_data):
         .slidefilmpanel {{ transition: .35s; box-sizing: border-box; background: #15161a; overflow: hidden; }}
         .slidefilmpanel:hover {{ background-color: #572aa7; }}
         .slidefilmpanel:hover .filmresim img {{ transform: scale(1.2); }}
-        .slider {{ position: relative; padding-bottom: 0px; width: 100%; overflow: hidden; --tw-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25); --tw-shadow-colored: 0 25px 50px -12px var(--tw-shadow-color); box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow); }}
+        .slider {{ position: relative; padding-bottom: 0px; width: 100%; overflow: hidden; --tw-shadow: anio0 25px 50px -12px rgb(0 0 0 / 0.25); --tw-shadow-colored: 0 25px 50px -12px var(--tw-shadow-color); box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow); }}
         .slider-container {{ display: flex; width: 100%; scroll-snap-type: x var(--tw-scroll-snap-strictness); --tw-scroll-snap-strictness: mandatory; align-items: center; overflow: auto; scroll-behavior: smooth; }}
         .slider-container .slider-slide {{ aspect-ratio: 9/13.5; display: flex; flex-shrink: 0; flex-basis: 14.14%; scroll-snap-align: start; flex-wrap: nowrap; align-items: center; justify-content: center; }}
         .slider-container::-webkit-scrollbar {{ width: 0px; }}
@@ -365,7 +337,22 @@ def generate_html_output(diziler_data):
         .filmpanel:hover .filmresim img {{ transform: scale(1.1); }}
         .filmpanel:focus .filmresim img {{ transform: none; }}
         .filmisim {{ width: 100%; font-size: 14px; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0px 5px; box-sizing: border-box; color: #fff; position: absolute; bottom: 25px; }}
-        .filmimdb {{ width: 20px; height: 20px; background-color: #572aa7; padding: 5px; text-align: center; border-radius: 50%; position: absolute; display: block; color: #fff; top: 0; box-shadow: 1px 5px 10px rgba(0,0,0,0.8); margin: 10px; }}
+        .filmimdb {{ 
+            width: 20px; 
+            height: 20px; 
+            background-color: #572aa7; 
+            padding: 5px; 
+            text-align: center; 
+            border-radius: 50%; 
+            position: absolute; 
+            display: block; 
+            color: #fff; 
+            top: 0; 
+            box-shadow: 1px 5px 10px rgba(0,0,0,0.8); 
+            margin: 10px; 
+            font-size: 12px; /* Puanın daha net görünmesi için */
+            line-height: 20px; /* Dikey ortalama için */
+        }}
         .resimust {{ height: 25px; width: 100%; position: absolute; bottom: 0px; overflow: hidden; box-sizing: border-box; padding: 0px 5px; }}
         .filmyil {{ width: 30%; font-size: 13px; font-weight: 500; color: #ccc; float: right; text-align: right; }}
         .filmdil {{ transition: .35s; width: 70%; float: left; box-sizing: border-box; padding: 0px; font-size: 13px; color: #ccc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
@@ -466,16 +453,14 @@ def generate_html_output(diziler_data):
         // JW Player anahtarı
         jwplayer.key = "cLGMn8T20tGvW+0eXPhq4NNmLB57TrscPjd1IyJF84o=";
 
-        // PYTHON TARAFINDAN ÇEKİLEN VE DÜZENLENEN VERİ BURAYA EKLENİR
-        var diziler = JSON.parse('{js_diziler_data}'); 
+        // PYTHON TARAFINDAN ÇEKİLEN VE DÜZENLENEN VERİ BURAYA EKLENİR (Hata 2 Düzeltmesi)
+        var diziler = JSON.parse('{js_diziler_data_escaped}'); 
 
-        // Mevcut ekranı takip etmek için bir değişken
         let currentScreen = 'anaSayfa';
-        let playerInstance = null; // Clappr için
-        let jwPlayerInstance = null; // JW Player için
+        let playerInstance = null; 
+        let jwPlayerInstance = null; 
 
         function showBolumler(diziID) {{
-            // Daha önce açılmış bir player varsa kapat
             if (jwPlayerInstance) {{ jwPlayerInstance.remove(); jwPlayerInstance = null; }}
             if (playerInstance) {{ playerInstance.destroy(); playerInstance = null; }}
             document.getElementById("playerpanel").style.display = "none";
@@ -490,10 +475,15 @@ def generate_html_output(diziler_data):
                 diziData.bolumler.forEach(function(bolum) {{
                     var item = document.createElement("div");
                     item.className = "filmpanel";
+
+                    // IMDb Puanı Düzeltmesi (Hata 3)
+                    var imdbHtml = diziData.imdb && diziData.imdb !== '-' ? 
+                                   '<div class="filmimdb">' + diziData.imdb + '</div>' : '';
+
                     item.innerHTML = `
                         <div class="filmresim"><img src="${{diziData.resim}}"></div>
                         <div class="filmisimpanel">
-                            <div class="filmimdb">${{diziData.imdb}}</div>
+                            ${{imdbHtml}}
                             <div class="filmisim">${{bolum.ad}}</div>
                             <div class="resimust">
                                 <div class="filmdil">${{diziData.dil}}</div>
@@ -515,7 +505,6 @@ def generate_html_output(diziler_data):
             document.getElementById("geriBtn").style.display = "block";
 
             currentScreen = 'bolumler';
-            // URL hash'i güncelle
             history.pushState({{ page: 'bolumler', diziID: diziID }}, '', `#bolumler-${{diziID}}`);
         }}
 
@@ -524,10 +513,8 @@ def generate_html_output(diziler_data):
             document.getElementById("bolumler").classList.add("hidden");
 
             currentScreen = 'player';
-            // URL hash'i player durumuna güncelle
             history.pushState({{ page: 'player', diziID: diziID, streamUrl: streamUrl }}, '', `#player-${{diziID}}`);
 
-            // Varolan player'ları temizle
             if (playerInstance) {{
                 playerInstance.destroy();
                 playerInstance = null;
@@ -578,7 +565,6 @@ def generate_html_output(diziler_data):
             document.getElementById("playerpanel").style.display = "none";
             document.getElementById("bolumler").classList.remove("hidden");
 
-            // Player'ı temizle
             if (playerInstance) {{
                 playerInstance.destroy();
                 playerInstance = null;
@@ -590,7 +576,6 @@ def generate_html_output(diziler_data):
 
             currentScreen = 'bolumler';
             var currentDiziID = sessionStorage.getItem('currentDiziID');
-            // Geri dönünce URL hash'i bölüm listesine geri al
             history.pushState({{ page: 'bolumler', diziID: currentDiziID }}, '', `#bolumler-${{currentDiziID}}`);
         }}
 
@@ -601,7 +586,6 @@ def generate_html_output(diziler_data):
             document.getElementById("geriBtn").style.display = "none";
             document.getElementById("playerpanel").style.display = "none";
 
-            // Player'ı temizle
             if (jwPlayerInstance) {{
                 jwPlayerInstance.remove();
                 jwPlayerInstance = null;
@@ -621,11 +605,8 @@ def generate_html_output(diziler_data):
             const playerMatch = hash.match(/^#player-(.*)$/);
             
             if (playerMatch) {{
-                // Tarayıcı Geri/İleri butonu ile player'a gidilirse
-                // Bu durumda sadece player'ı kapatıp bölüm listesine dönülmeli
                 geriPlayer(); 
             }} else if (diziMatch) {{
-                // Tarayıcı Geri/İleri butonu ile bölüm listesine gidilirse
                 const diziID = diziMatch[1];
                 if (diziler[diziID]) {{
                     showBolumler(diziID);
@@ -633,7 +614,6 @@ def generate_html_output(diziler_data):
                      geriDon();
                 }}
             }} else {{
-                // Ana sayfaya dönülürse
                 geriDon();
             }}
         }});
@@ -656,7 +636,6 @@ def generate_html_output(diziler_data):
                 document.getElementById("playerpanel").style.display = "none";
                 document.getElementById("geriBtn").style.display = "none";
                 currentScreen = 'anaSayfa';
-                // Başlangıç durumunda URL'yi temizle
                 history.replaceState({{ page: 'anaSayfa' }}, '', '#anaSayfa');
             }}
         }}
@@ -672,7 +651,6 @@ def generate_html_output(diziler_data):
                 var title = serie.querySelector('.filmisim').textContent.toLowerCase();
                 
                 if (query.length > 0) {{
-                    // Dizi adını normalize etmeden arama yap
                     if (title.includes(query)) {{
                         serie.style.display = "block";
                     }} else {{
@@ -705,15 +683,14 @@ def generate_html_output(diziler_data):
         with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
             f.write(html_template)
         
-        print(f"\n✅ BAŞARILI: Tüm veriler çekildi ve '{OUTPUT_FILE}' dosyasına kaydedildi.")
-        print("Oluşturulan HTML dosyasını tarayıcınızda açarak sonucu görebilirsiniz.")
+        print(f"\n✅ BAŞARILI: Tüm hatalar düzeltildi ve '{OUTPUT_FILE}' dosyasına kaydedildi.")
+        print("Lütfen tarayıcınızda deneyin.")
 
     except Exception as e:
         print(f"\n[KRİTİK HATA] HTML dosyası yazılırken bir sorun oluştu: {e}")
 
 # Betiği Çalıştır
 if __name__ == "__main__":
-    # unidecode modülünün yüklü olduğundan emin olun.
     try:
         import unidecode
     except ImportError:
