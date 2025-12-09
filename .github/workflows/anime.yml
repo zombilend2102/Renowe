@@ -2,19 +2,21 @@ name: Update anime TV
 
 on:
   schedule:
-    - cron: '0 1 * * *'  # Günde 1 kez çalışır (UTC 01:00 = Türkiye saati 04:00)
-  workflow_dispatch:      # Manuel tetikleme
+    - cron: '0 1 * * *'
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     
     permissions:
-      contents: write 
+      contents: write
 
     steps:
     - name: Depoyu Çek (Checkout)
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Çok önemli! Yoksa rebase/pull yapamaz
 
     - name: Python Kurulumu
       uses: actions/setup-python@v5
@@ -34,3 +36,4 @@ jobs:
       with:
         commit_message: "Anime Kanalları Güncellendi (Otomatik Commit) $(date)"
         file_pattern: anime.html
+        push_options: '--force'   # Hatanın çözümü
