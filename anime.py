@@ -5,15 +5,38 @@ import json
 
 # --- 1. Dizi Verileri (Sadece Karma 2025 ve Hükümsüz) ---
 dizi_listesi = [
-    {"ad": "Mirage", "logo": "https://www.themoviedb.org/t/p/w500/pKh8bJNn4bJvlNsHNmScmKeAu1R.jpg", "link": "https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS9taXJhZ2U="},
-    {"ad": "Sorgu", "logo": "https://www.themoviedb.org/t/p/w500/otj4Mo8HS7ypBpt33MOngBHUNgB.jpg", "link": "https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS9zb3JndQ=="},
-    {"ad": "Zamanın Kapıları", "logo": "https://www.themoviedb.org/t/p/w500/lc5Auyq4F8QK6yeMCCpvdwJIIve.jpg", "link": "https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS96YW1hbmluLWthcGlsYXJp"},
-    {"ad": "Sarmaşık Zamanı", "logo": "https://www.themoviedb.org/t/p/w500/bs3lq3yzuuKXoDtDo22d2qRZXUR.jpg", "link": "https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS9zYXJtYXNpay16YW1hbmk="},
-    {"ad": "Var Bunlar", "logo": "https://www.themoviedb.org/t/p/w500/iWKG3UKXVSCZ0VkqjEGfTk7MD4C.jpg", "link": "https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS92YXItYnVubGFy"},
-    {"ad": "Fandom", "logo": "https://www.themoviedb.org/t/p/w500//bk6af4kwnnPCMa5wzWieS6vP3rv.jpg", "link": "https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS9mYW5kb20="},
-    {"ad": "Nasıl Fenomen Oldum", "logo": "https://www.themoviedb.org/t/p/w500//1CsppyAoBANBAdgFtawDMySwMuQ.jpg", "link": "https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS9uYXNpbC1mZW5vbWVuLW9sZHVt"},
-    {"ad": "Hayaller ve Hayatlar", "logo": "https://www.themoviedb.org/t/p/w500//iebnEt6dLqmq63nkqNRyKIAGIRS.jpg", "link": "https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS9oYXlhbGxlci12ZS1oYXlhdGxhcg=="},
-    {"ad": "Erkek Severse", "logo": "https://www.themoviedb.org/t/p/w500//bUvf4WjKHFzFfZkemo4TrTHV0Mo.jpg", "link": "https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS9lcmtlay1zZXZlcnNl"}
+    {"ad":"Sekizinci Aile","logo":"https://www.themoviedb.org/t/p/w500/y8NmGRfD3GuhhR8bTj7rXWkOMqk.jpg","link":"https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS9zZWtpemluY2ktYWlsZQ=="},
+    {"ad":"Aşkı Hatırla","logo":"https://www.themoviedb.org/t/p/w500/nSzE37pWqu2ynENq5jPVj5eFcxx.jpg","link":"https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS9hc2tpLWhhdGlybGE="},
+    {"ad":"Star Wars: Skeleton Crew","logo":"https://www.themoviedb.org/t/p/w500/srQbJhLRKoAwRrNN5ga7webPHbC.jpg","link":"https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS9zdGFyLXdhcnMtc2tlbGV0b24tY3Jldw=="},
+    {"ad":"The Acolyte","logo":"https://www.themoviedb.org/t/p/w500/mztdt3y6GBsJR69zHtszFezTCLT.jpg","link":"https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS90aGUtYWNvbHl0ZQ=="},
+    {"ad":"Star Wars: Tales of the Empire","logo":"https://www.themoviedb.org/t/p/w500/qA28nLteurVboSSzltuyYt1lvlC.jpg","link":"https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS9zdGFyLXdhcnMtdGFsZXMtb2YtdGhlLWVtcGlyZQ=="},
+    {"ad":"Shogun","logo":"https://www.themoviedb.org/t/p/w500/7O4iVfOMQmdCSxhOg1WnzG1AgYT.jpg","link":"https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS9zaG9ndW4="},
+    {"ad":"Percy Jackson and the Olympians","logo":"https://www.themoviedb.org/t/p/w500/c9loCTYWZpzYBTJBvE3DtRw4DBb.jpg","link":"https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS9wZXJjeS1qYWNrc29uLWFuZC10aGUtb2x5bXBpYW5z"},
+    {"ad":"The Artful Dodger","logo":"https://www.themoviedb.org/t/p/w500/koQS0vMjneXgXrJt3Z3CZ5uQqI2.jpg","link":"https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS90aGUtYXJ0ZnVsLWRvZGdlcg=="},
+    {"ad":"Ahsoka","logo":"https://www.themoviedb.org/t/p/w500/laCJxobHoPVaLQTKxc14Y2zV64J.jpg","link":"https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS9haHNva2E="},
+    {"ad":"Secret Invasion","logo":"https://www.themoviedb.org/t/p/w500/f5ZMzzCvt2IzVDxr54gHPv9jlC9.jpg","link":"https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS9zZWNyZXQtaW52YXNpb24="},
+    {"ad":"Arayış","logo":"https://www.themoviedb.org/t/p/w500/rt92S7wMB5qnNDnjP068rwT4LKS.jpg","link":"https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS9hcmF5aXM="},
+    {"ad":"Aktris","logo":"https://www.themoviedb.org/t/p/w500/fA7pIct280xzovtILkM5dfqY9P4.jpg","link":"https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS9ha3RyaXM="},
+    {"ad":"Willow","logo":"https://www.themoviedb.org/t/p/w500/jhdSPDlhswjN1r6O0pGP3ZvQgU8.jpg","link":"https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS93aWxsb3c="},
+    {"ad":"Ben Gri","logo":"https://www.themoviedb.org/t/p/w500/vujhBcfUJDOKrLoSI0O1gvNdMDm.jpg","link":"https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS9iZW4tZ3Jp"},
+    {"ad":"Dünyayla Benim Aramda","logo":"https://www.themoviedb.org/t/p/w500/4IfcB2ed6EnZVO8plvtxCjaFGmk.jpg","link":"https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS9kdW55YXlsYS1iZW5pbS1hcmFtZGE="},
+    {"ad":"A Teacher","logo":"https://www.themoviedb.org/t/p/w500/rH2eEuThzRQh87Uxz6SY3BuVNBD.jpg","link":"https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS9hLXRlYWNoZXI="},
+    {"ad":"The Kardashians","logo":"https://www.themoviedb.org/t/p/w500/3cJgB4fOfgHKNoHgtT3h1Qqkvxq.jpg","link":"https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS90aGUta2FyZGFzaGlhbnM="},
+    {"ad":"Pam & Tommy","logo":"https://www.themoviedb.org/t/p/w500/u6Hfb3EsnvlPChr01jErXDTsdan.jpg","link":"https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS9wYW0tdG9tbXk="},
+    {"ad":"She-Hulk: Attorney at Law","logo":"https://www.themoviedb.org/t/p/w500/qhRex189iu6Cs0dV7ahbuBaRgeK.jpg","link":"https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS9zaGUtaHVsay1hdHRvcm5leS1hdC1sYXc="},
+    {"ad":"Kaçış","logo":"https://www.themoviedb.org/t/p/w500/2Lss0t2ouTnGSnQggg15W6MYI2M.jpg","link":"https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS9rYWNpcw=="},
+    {"ad":"Ms. Marvel","logo":"https://www.themoviedb.org/t/p/w500/ls2Hl8CXmqEHvkDqkN3fRtmDodK.jpg","link":"https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS9tcy1tYXJ2ZWw="},
+    {"ad":"Moon Knight","logo":"https://www.themoviedb.org/t/p/w500/vKDUmKO6F9bSKKyHhg7YGbgcEeF.jpg","link":"https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS9tb29uLWtuaWdodA=="},
+    {"ad":"Obi-Wan Kenobi","logo":"https://www.themoviedb.org/t/p/w500/qJRB789ceLryrLvOKrZqLKr2CGf.jpg","link":"https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS9vYmktd2FuLWtlbm9iaQ=="},
+    {"ad":"The Quest","logo":"https://www.themoviedb.org/t/p/w500/bN30XwIAnWAZLqIchDUdlv29rDe.jpg","link":"https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS90aGUtcXVlc3Q="},
+    {"ad":"Parallels","logo":"https://www.themoviedb.org/t/p/w500/gVbpn70pkhb5kjcFubz5GAhFkpA.jpg","link":"https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS9wYXJhbGxlbXM="},
+    {"ad":"The Book of Boba Fett","logo":"https://www.themoviedb.org/t/p/w500/gNbdjDi1HamTCrfvM9JeA94bNi2.jpg","link":"https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS90aGUtYm9vay1vZi1ib2JhLWZldHQ="},
+    {"ad":"Hawkeye","logo":"https://www.themoviedb.org/t/p/w500/uQdAET8dl403BIVktl5gjtzXRDT.jpg","link":"https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS9oYXdrZXll"},
+    {"ad":"What If...?","logo":"https://www.themoviedb.org/t/p/w500/lztz5XBMG1x6Y5ubz7CxfPFsAcW.jpg","link":"https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS93aGF0LWlm"},
+    {"ad":"Loki","logo":"https://www.themoviedb.org/t/p/w500/kEl2t3OhXc3Zb9FBh1AuYzRTgZp.jpg","link":"https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS9sb2tp"},
+    {"ad":"The Falcon and the Winter Soldier","logo":"https://www.themoviedb.org/t/p/w500/6utJhrtTyvbDPngyTYYunCjiqji.jpg","link":"https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS90aGUtZmFsY29uLWFuZC10aGUtd2ludGVyLXNvbGRpZXI="},
+    {"ad":"WandaVision","logo":"https://www.themoviedb.org/t/p/w500/frobUz2X5Pc8OiVZU8Oo5K3NKMM.jpg","link":"https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS93YW5kYXZpc2lvbg=="},
+    {"ad":"The Mandalorian","logo":"https://www.themoviedb.org/t/p/w500/sWgBv7LV2PRoQgkxwlibdGXKz1S.jpg","link":"https://arenamovies.online/palx/Serie/aHR0cHM6Ly9kaXppcGFsMTIyMS5jb20vZGl6aS90aGUtbWFuZGFsb3JpYW4="}
 ]
 
 # Ana diziler objesi, JavaScript'te kullanılacak.
