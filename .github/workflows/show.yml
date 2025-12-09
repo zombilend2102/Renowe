@@ -1,0 +1,45 @@
+name: Update ShowTV VOD
+
+on:
+  schedule:
+    - cron: '0 2 * * *'   # Her gün Türkiye saati 05:00 (UTC+3)
+  workflow_dispatch:       # Manuel tetikleme
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write       # HTML dosyasını commit edebilmesi için
+
+    steps:
+      - name: Repoyu Çek
+        uses: actions/checkout@v3
+
+      - name: Python Kur
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Gerekli Modülleri Kur
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests tqdm beautifulsoup4 unidecode urllib3
+
+      - name: ShowTV Scraper Çalıştır
+        run: |
+          python show.py
+
+      - name: Commit ve Push
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          
+          git add showtv_vod_player.html || echo "No HTML file to add"
+
+          if git diff --cached --quiet; then
+            echo "Değişiklik yok, commit yapılmadı."
+          else
+            git commit -m "Auto-update ShowTV VOD $(date +"%Y-%m-%d %H:%M")"
+            git push
+          fi
