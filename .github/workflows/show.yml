@@ -27,7 +27,7 @@ jobs:
 
       - name: Scraper'ı Çalıştır
         run: |
-          python scraper.py   # Senin ana scraper dosyan (isim farklıysa değiştir)
+          python show.py   # Senin ana scraper dosyan (isim farklıysa değiştir)
 
       - name: HTML Çıktısını Commit Et
         run: |
