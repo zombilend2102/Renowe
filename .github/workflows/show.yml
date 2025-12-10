@@ -16,7 +16,8 @@ jobs:
       - name: Repoyu Çek
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0   # <-- HATANIN ÇÖZÜMÜ
+          fetch-depth: 0
+          clean: true      # <-- Unstaged değişiklik sorununu çözer
 
       - name: Python Kur
         uses: actions/setup-python@v4
@@ -36,7 +37,8 @@ jobs:
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
 
-          git pull --rebase   # <-- Çatışmayı engeller
+          # BURADAKİ SORUNLU KISIM KALDIRILDI
+          # git pull --rebase
 
           git add showtv_vod_player.html || echo "No HTML file to add"
 
