@@ -7,7 +7,6 @@ import re
 # Web sitesi kök adresi
 BASE_URL = "https://www.showtv.com.tr"
 
-# Tarayıcı gibi görünmek için Header
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
 }
@@ -22,22 +21,29 @@ def get_soup(url):
         return None
 
 def slugify(text):
-    """Metni ID olarak kullanılabilecek formata çevirir (örn: Kızılcık Şerbeti -> kizilcikserbeti)"""
     text = text.lower()
     text = text.replace('ı', 'i').replace('ğ', 'g').replace('ü', 'u').replace('ş', 's').replace('ö', 'o').replace('ç', 'c')
     text = re.sub(r'[^a-z0-9]', '', text)
     return text
 
+def extract_episode_number(name):
+    """
+    Bölüm adından numarayı çeker (Sıralama için).
+    Örn: '131. Bölüm' -> 131 döner.
+    Bulamazsa 9999 döndürür ki sona gitsin.
+    """
+    match = re.search(r'(\d+)\.\s*Bölüm', name)
+    if match:
+        return int(match.group(1))
+    return 9999
+
 def main():
-    print("Diziler taranıyor...")
+    print("Diziler taranıyor... Lütfen bekleyin.")
     soup = get_soup(f"{BASE_URL}/diziler")
     if not soup:
         return
 
-    # Ana dizi listesini bul
     diziler_data = {}
-    
-    # Senin verdiğin yapıda diziler genellikle box-type6 içinde
     dizi_kutulari = soup.find_all("div", attrs={"data-name": "box-type6"})
     
     print(f"Toplam {len(dizi_kutulari)} adet dizi bulundu.")
@@ -50,122 +56,125 @@ def main():
                 
             dizi_link = BASE_URL + link_tag.get("href")
             dizi_adi = link_tag.get("title")
+            dizi_id = slugify(dizi_adi)
             
+            # Afiş Linki
             img_tag = kutu.find("img")
             poster_url = img_tag.get("src") if img_tag else ""
-            # data-src varsa onu al (lazy load için)
             if img_tag and img_tag.get("data-src"):
                 poster_url = img_tag.get("data-src")
-
-            # Linkin sonundaki query parametrelerini temizle (?v=...)
             if "?" in poster_url:
                 poster_url = poster_url.split("?")[0]
 
-            dizi_id = slugify(dizi_adi)
-            
             print(f"--> İşleniyor: {dizi_adi}")
+
+            # ---------------------------------------------------------
+            # ÖNEMLİ: Ana sayfadaki "Son Bölüm" butonunu yakala
+            # ---------------------------------------------------------
+            son_bolum_url = None
+            son_bolum_span = kutu.find("span", string="Son Bölüm")
+            if son_bolum_span:
+                parent_a = son_bolum_span.find_parent("a")
+                if parent_a and parent_a.get("href"):
+                    href = parent_a.get("href")
+                    if "/tum_bolumler/" in href:
+                        son_bolum_url = BASE_URL + href
+                        print(f"    [Bilgi] Ana sayfadan son bölüm linki tespit edildi.")
 
             # Dizi Detay Sayfasına Git
             detail_soup = get_soup(dizi_link)
             if not detail_soup:
                 continue
 
-            bolumler_listesi = []
-            
-            # YÖNTEM 1: <select> içindeki <option> etiketlerini tarama (Tüm sezonlar için en garantisi)
-            # Sayfadaki tüm data-href içeren option'ları buluyoruz.
-            options = detail_soup.find_all("option", attrs={"data-href": True})
-            
-            # Tekrarları önlemek için set kullanalım
+            # Linkleri toplayacağımız geçici liste
+            raw_links = []
             seen_urls = set()
 
+            # 1. YÖNTEM: Dropdown (<select> -> <option>)
+            options = detail_soup.find_all("option", attrs={"data-href": True})
             for opt in options:
                 rel_link = opt.get("data-href")
-                bolum_adi = opt.text.strip() # Örn: 131. Bölüm
-                
-                # Link /dizi/tum_bolumler ile başlamıyorsa atla (fragman vs olabilir)
-                if "/tum_bolumler/" not in rel_link:
-                    continue
+                bolum_adi = opt.text.strip()
+                if "/tum_bolumler/" in rel_link:
+                    full = BASE_URL + rel_link
+                    if full not in seen_urls:
+                        raw_links.append({"ad": bolum_adi, "page_url": full})
+                        seen_urls.add(full)
 
-                full_link = BASE_URL + rel_link
-                
-                if full_link not in seen_urls:
-                    bolumler_listesi.append({
-                        "ad": bolum_adi,
-                        "page_url": full_link
-                    })
-                    seen_urls.add(full_link)
+            # 2. YÖNTEM: Eğer ana sayfadan "Son Bölüm" bulduysak ve listede yoksa ekle
+            if son_bolum_url and son_bolum_url not in seen_urls:
+                raw_links.append({"ad": "Yeni Bölüm (Otomatik Eklendi)", "page_url": son_bolum_url})
+                seen_urls.add(son_bolum_url)
+                print("    [Kritik] Listede olmayan son bölüm manuel eklendi.")
 
-            # Eğer optionlardan hiç veri gelmediyse JSON-LD veya liste yapısına bak (Yedek)
-            if not bolumler_listesi:
-                 list_items = detail_soup.find_all("a", href=True)
-                 for item in list_items:
-                     href = item.get("href")
-                     if "/tum_bolumler/" in href and item.text.strip():
-                         full_link = BASE_URL + href
-                         if full_link not in seen_urls:
-                             bolumler_listesi.append({
-                                 "ad": item.text.strip(),
-                                 "page_url": full_link
-                             })
-                             seen_urls.add(full_link)
-
-            print(f"    - {len(bolumler_listesi)} bölüm bulundu. M3U8 linkleri çekiliyor...")
+            print(f"    - {len(raw_links)} adet sayfa linki bulundu. Videolar çekiliyor...")
 
             final_bolumler = []
             
-            # Her bölümün içine girip videoyu al (Test için sadece ilk 3 bölümü çekebilirsin, burayı sınırsız yaptım)
-            for bolum in bolumler_listesi: 
-                video_page_soup = get_soup(bolum["page_url"])
-                if not video_page_soup:
+            # Linkleri gez ve M3U8 çek
+            for item in raw_links: 
+                video_soup = get_soup(item["page_url"])
+                if not video_soup:
                     continue
                 
-                # hope-video divini bul
-                video_div = video_page_soup.find("div", class_="hope-video")
+                # Bölüm adını title'dan çekip düzeltelim
+                page_title = video_soup.title.string if video_soup.title else item["ad"]
+                clean_name = page_title.replace("İzle", "").replace("Show TV", "").strip()
+                
+                # Eğer temiz isimde "Bölüm" geçiyorsa onu kullan, yoksa listedeki adı kullan
+                if "Bölüm" in clean_name:
+                    display_name = clean_name
+                else:
+                    display_name = item["ad"]
+
+                # Video JSON verisi
+                video_div = video_soup.find("div", class_="hope-video")
                 if video_div and video_div.get("data-hope-video"):
                     try:
-                        json_str = video_div.get("data-hope-video")
-                        video_data = json.loads(json_str)
+                        v_data = json.loads(video_div.get("data-hope-video"))
+                        m3u8 = ""
+                        if "media" in v_data and "m3u8" in v_data["media"]:
+                            m3u8 = v_data["media"]["m3u8"][0]["src"]
                         
-                        # m3u8 linkini bul
-                        m3u8_url = ""
-                        if "media" in video_data and "m3u8" in video_data["media"]:
-                            # Genelde ilk sıradaki standart kalitedir
-                            m3u8_url = video_data["media"]["m3u8"][0]["src"]
-                        
-                        if m3u8_url:
-                            # Linkteki çift slash hatalarını temizle (https://site.com//ht//...)
-                            m3u8_url = m3u8_url.replace("//ht/", "/ht/").replace("com//", "com/")
-
+                        if m3u8:
+                            m3u8 = m3u8.replace("//ht/", "/ht/").replace("com//", "com/")
                             final_bolumler.append({
-                                "ad": bolum["ad"],
-                                "link": m3u8_url
+                                "ad": display_name,
+                                "link": m3u8,
+                                # Sıralama için bölüm numarasını buluyoruz
+                                "episode_num": extract_episode_number(display_name)
                             })
-                            print(f"      + {bolum['ad']} OK")
-                    except Exception as e:
-                        print(f"      ! Video JSON hatası: {e}")
-                else:
-                    print(f"      ! Video Player bulunamadı: {bolum['ad']}")
+                            print(f"      + {display_name} OK")
+                    except:
+                        pass
                 
-                # Çok hızlı istek atıp ban yememek için minik bekleme
-                time.sleep(0.2)
+                time.sleep(0.05) 
 
-            # Sadece eğer bölüm bulunduysa listeye ekle
+            # ---------------------------------------------------------
+            # SIRALAMA: Küçükten Büyüğe (1. Bölüm -> Son Bölüm)
+            # ---------------------------------------------------------
             if final_bolumler:
+                # Bölüm numarasına göre sırala
+                final_bolumler = sorted(final_bolumler, key=lambda x: x['episode_num'])
+                
+                # JSON'a kaydederken 'episode_num' alanını temizle
+                cleaned_final = [{"ad": x["ad"], "link": x["link"]} for x in final_bolumler]
+
                 diziler_data[dizi_id] = {
                     "resim": poster_url,
-                    "bolumler": final_bolumler
+                    "bolumler": cleaned_final
                 }
 
         except Exception as e:
-            print(f"Bir diziyi işlerken genel hata: {e}")
+            print(f"Hata: {e}")
 
-    # HTML Şablonunu Oluştur
     create_html_file(diziler_data)
 
 def create_html_file(data):
-    json_data = json.dumps(data, ensure_ascii=False, indent=4)
+    # JSON verisini HTML içine gömmek için stringe çevir
+    json_str = json.dumps(data, ensure_ascii=False)
     
+    # CSS'in eksiksiz hali
     html_content = f"""<!DOCTYPE html>
 <html lang="tr">
 <head>
@@ -317,6 +326,7 @@ def create_html_file(data):
             padding: 0px;
             overflow: hidden;
             transition: border 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
         }}
         .filmisimpanel {{
             width: 100%;
@@ -518,7 +528,6 @@ def create_html_file(data):
             cursor: pointer;
             margin: 10px;
             width: 100px;
-            /* Flexbox'a göre hizalanır, ancak #main-player tam alanı kapladığı için bu düğme üstte görünecektir */
             position: absolute; /* Video alanının üstüne çıkması için mutlak konumlandırma */
             top: 10px;
             left: 10px;
@@ -573,7 +582,7 @@ def create_html_file(data):
         const BRADMAX_PARAMS = "&autoplay=true&fs=true"; 
 
         // Python tarafından çekilen veri buraya gömülecek
-        var diziler = {json_data};
+        var diziler = {json_str};
 
         // Sayfa yüklendiğinde dizileri listele
         document.addEventListener('DOMContentLoaded', function() {{
@@ -606,7 +615,7 @@ def create_html_file(data):
             listContainer.innerHTML = "";
             
             if (diziler[diziID]) {{
-                // Bölümleri terse çevirmek istersen .reverse() ekleyebilirsin, şu an web sitesindeki sırada
+                // Diziler Python'da sıralandı ama yine de garanti olsun diye burada karışmıyoruz
                 diziler[diziID].bolumler.forEach(function(bolum) {{
                     var item = document.createElement("div");
                     item.className = "filmpanel";
@@ -625,7 +634,7 @@ def create_html_file(data):
                 listContainer.innerHTML = "<p>Bu dizi için bölüm bulunamadı.</p>";
             }}
             
-            document.querySelector(".filmpaneldis").classList.add("hidden");
+            document.querySelector("#diziListesiContainer").classList.add("hidden");
             document.getElementById("bolumler").classList.remove("hidden");
             document.getElementById("geriBtn").style.display = "block";
 
@@ -664,7 +673,7 @@ def create_html_file(data):
 
         function geriDon() {{
             sessionStorage.removeItem('currentDiziID');
-            document.querySelector(".filmpaneldis").classList.remove("hidden");
+            document.querySelector("#diziListesiContainer").classList.remove("hidden");
             document.getElementById("bolumler").classList.add("hidden");
             document.getElementById("geriBtn").style.display = "none";
             
@@ -682,7 +691,7 @@ def create_html_file(data):
                 showBolumler(event.state.diziID);
             }} else {{
                 sessionStorage.removeItem('currentDiziID');
-                document.querySelector(".filmpaneldis").classList.remove("hidden");
+                document.querySelector("#diziListesiContainer").classList.remove("hidden");
                 document.getElementById("bolumler").classList.add("hidden");
                 document.getElementById("playerpanel").style.display = "none";
                 document.getElementById("geriBtn").style.display = "none";
@@ -699,7 +708,7 @@ def create_html_file(data):
                 showBolumler(currentDiziID);
             }} else {{
                 currentScreen = 'anaSayfa';
-                document.querySelector(".filmpaneldis").classList.remove("hidden");
+                document.querySelector("#diziListesiContainer").classList.remove("hidden");
                 document.getElementById("bolumler").classList.add("hidden");
                 document.getElementById("playerpanel").style.display = "none";
                 document.getElementById("geriBtn").style.display = "none";
