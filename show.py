@@ -3,23 +3,8 @@ from bs4 import BeautifulSoup
 import json
 import re
 from urllib.parse import urljoin
-# Unidecode kütüphanesi kurulu olmadan Türkçe karakterleri dönüştürmek için basit bir fonksiyon
-from unidecode import unidecode # unidecode kullanmak, manuel eşleştirmeden daha güvenli ve pratik bir yöntemdir.
-# Eğer unidecode kütüphanesini kuramıyorsanız (pip install unidecode), 
-# aşağıdaki manuel eşleştirmeyi kullanabilirsiniz:
-#
-# def slugify_turkish(text):
-#     text = text.lower()
-#     replacements = {
-#         'ç': 'c', 'ğ': 'g', 'ı': 'i', 'ö': 'o', 'ş': 's', 'ü': 'u',
-#         'â': 'a', 'î': 'i', 'û': 'u'
-#     }
-#     for k, v in replacements.items():
-#         text = text.replace(k, v)
-#     text = re.sub(r'[^a-z0-9]+', '', text)
-#     return text
-#
-# Not: Bu kodun çalışması için 'unidecode' kütüphanesini kurmanız önerilir.
+# Bu import'un çalışması için 'pip install unidecode' gereklidir.
+from unidecode import unidecode 
 
 # --- Sabitler ---
 BASE_URL = "https://www.showtv.com.tr"
@@ -33,16 +18,24 @@ dizi_verileri = {}
 def get_html_content(url):
     """Belirtilen URL'nin HTML içeriğini çeker."""
     try:
-        # User-Agent ekleyerek bazı sunucu engellemelerini aşmayı deneyebiliriz.
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
         response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status() # HTTP hatalarını yakala
+        response.raise_for_status()
         return response.text
     except requests.exceptions.RequestException as e:
         print(f"Hata: URL çekilemedi {url}: {e}")
         return None
+
+def slugify_turkish(text):
+    """Türkçe karakterleri Latin alfabesine dönüştürerek URL dostu bir slug/ID oluşturur."""
+    # unidecode'u kullanıyoruz
+    text = unidecode(text).lower()
+    # Boşlukları tireye çevir ve geri kalan özel karakterleri temizle
+    text = re.sub(r'[^a-z0-9\s-]', '', text).replace(' ', '-')
+    # Art arda gelen tireleri tek tireye indir
+    return re.sub(r'-+', '-', text)
 
 def extract_dizi_list(html_content):
     """Diziler sayfasından dizi adı, afiş linki ve detay linkini çeker."""
@@ -50,27 +43,19 @@ def extract_dizi_list(html_content):
     soup = BeautifulSoup(html_content, 'html.parser')
     diziler = []
 
-    # Dizilerin bulunduğu ana kapsayıcıları bulma (data-name="box-type6")
     dizi_panelleri = soup.select('li div[data-name="box-type6"]')
-    
     if not dizi_panelleri:
-        # Eski yapılarda veya listelerde kullanılan alternatif seçici denemesi
         dizi_panelleri = soup.select('.dizi-list-wrapper .group') 
 
     for panel in dizi_panelleri:
-        # Dizi detay linki ve adı (<a title="..." href="...">)
         link_tag = panel.select_one('a.group')
-        
-        # Afiş resmi (<img src="..."> veya <img data-src="...">)
         img_tag = panel.select_one('img')
 
         if link_tag and img_tag:
             dizi_title = link_tag.get('title')
-            
             dizi_detail_path = link_tag.get('href')
             dizi_detail_url = urljoin(BASE_URL, dizi_detail_path)
             
-            # Afiş linki
             img_src = img_tag.get('src') if img_tag.get('src') and 'transparent.gif' not in img_tag.get('src') else img_tag.get('data-src')
             if img_src:
                 img_src_cleaned = re.sub(r'\?v=\d+', '', img_src)
@@ -78,30 +63,21 @@ def extract_dizi_list(html_content):
                 img_src_cleaned = None
 
             if dizi_title and dizi_detail_url and img_src_cleaned:
-                
-                # --- DÜZELTME 1: ID oluşturma mantığı (Türkçe karakterler için) ---
-                # unidecode kullanarak ID'yi daha doğru ve benzersiz yap
-                raw_id = unidecode(dizi_title.lower()).replace(' ', '-')
-                dizi_id = re.sub(r'[^a-z0-9-]', '', raw_id) # Sadece harf, rakam ve tire tut
-                # Düzeltme: Özellikle "Rüya Gibi" gibi iki kelimelik adlar için 'ruya-gibi' şeklinde tutmak en iyisidir.
+                # --- DÜZELTME 1: slugify kullanarak ID oluşturma ---
+                dizi_id = slugify_turkish(dizi_title.strip()) 
                 
                 diziler.append({
-                    'ad': dizi_title.strip(), # Orijinal adı sakla
-                    'id': dizi_id,           # Temizlenmiş ID
+                    'ad': dizi_title.strip(), 
+                    'id': dizi_id,           
                     'detail_url': dizi_detail_url,
                     'poster_url': img_src_cleaned
                 })
     return diziler
 
-def extract_bolum_links(dizi_detail_html, dizi_ad_for_cleaning):
-    """Dizi detay sayfasından bölüm linklerini çeker ve daha temiz adlar oluşturur."""
+def extract_bolum_links(dizi_detail_html):
+    """Dizi detay sayfasından bölüm linklerini çeker ve temiz adlar oluşturur."""
     soup = BeautifulSoup(dizi_detail_html, 'html.parser')
     bolumler = []
-    
-    # Dizi adını slugify yapıp URL'deki karşılığını bulalım
-    # Örnek: 'Rüya Gibi' -> 'ruya-gibi'
-    dizi_slug = unidecode(dizi_ad_for_cleaning.lower()).replace(' ', '-')
-    dizi_slug = re.sub(r'[^a-z0-9-]', '', dizi_slug)
 
     script_tags = soup.find_all('script', {'type': 'application/ld+json'})
     
@@ -109,18 +85,14 @@ def extract_bolum_links(dizi_detail_html, dizi_ad_for_cleaning):
         try:
             data = json.loads(tag.string)
             if data.get('@type') == 'ItemList' and 'itemListElement' in data:
+                temp_bolumler = []
                 for element in data['itemListElement']:
                     if element.get('@type') == 'ListItem' and 'url' in element:
                         bolum_path = element['url'].replace('\\/', '/')
                         bolum_url = urljoin(BASE_URL, bolum_path)
                         
-                        # --- DÜZELTME 2: Daha temiz bölüm adı çıkarma ---
-                        # Link yapısını kullan: /.../dizi-adi-sezon-1-bolum-2-izle/ID
-                        
-                        # bolum_path'i dizi slug'ına göre parçala ve Sezon/Bölüm bilgilerini çek
-                        # r'/(.*?)-sezon-(\d+)-bolum-(\d+)-izle/'
-                        
-                        # Daha genel bir regex kullanalım
+                        # --- DÜZELTME 2: Temiz Bölüm Adı Çıkarma ---
+                        # Linkten Sezon ve Bölüm numaralarını çek
                         match = re.search(r'sezon-(\d+)-bolum-(\d+)-izle', bolum_path)
                         
                         if match:
@@ -128,17 +100,15 @@ def extract_bolum_links(dizi_detail_html, dizi_ad_for_cleaning):
                             bolum_num = match.group(2)
                             bolum_ad = f"{sezon}. Sezon {bolum_num}. Bölüm"
                         else:
-                            # Eğer Sezon/Bölüm bilgisi bulunamazsa, sıradan numara kullan
-                            position = element.get('position', len(bolumler) + 1)
+                            position = element.get('position', len(temp_bolumler) + 1)
                             bolum_ad = f"Bölüm {position}" 
 
-                        bolumler.append({
-                            'ad': bolum_ad, # Artık temiz ve anlaşılır ad
+                        temp_bolumler.append({
+                            'ad': bolum_ad, 
                             'url': bolum_url
                         })
-                
-                # Orijinal sırayı koruyalım veya ters çevirelim. Show TV'de JSON genellikle eski bölümden yeni bölüme doğru sıralanır, bu yüzden tersten alalım.
-                return bolumler[::-1]
+                # Yeni bölümler başta olacak şekilde ters çevir
+                return temp_bolumler[::-1] 
         except json.JSONDecodeError:
             continue
         except Exception as e:
@@ -150,72 +120,57 @@ def extract_bolum_links(dizi_detail_html, dizi_ad_for_cleaning):
 def extract_m3u8_link(bolum_html):
     """Bölüm sayfasından m3u8 stream linkini çeker."""
     soup = BeautifulSoup(bolum_html, 'html.parser')
-    
-    # m3u8 linki genellikle data-hope-video özniteliği içinde JSON formatında bulunur
     video_tag = soup.find(lambda tag: tag.has_attr('data-hope-video'))
 
     if video_tag:
         try:
             data_hope_video_str = video_tag['data-hope-video']
-            # data-hope-video içindeki tek tırnakları çift tırnağa çevir
             data_hope_video_str = data_hope_video_str.replace("'", '"')
             data = json.loads(data_hope_video_str)
 
-            # JSON yapısı: media -> m3u8 -> src
             m3u8_list = data.get('media', {}).get('m3u8', [])
             if m3u8_list:
                 m3u8_path = m3u8_list[0].get('src')
                 if m3u8_path:
                     m3u8_path_cleaned = m3u8_path.replace('\\/', '/')
-                    
                     if m3u8_path_cleaned.startswith('//'):
                         return "https:" + m3u8_path_cleaned
-                    
                     return m3u8_path_cleaned
-
-        except json.JSONDecodeError as e:
-            # print(f"data-hope-video JSON ayrıştırma hatası: {e}") # Çok fazla loglamamak için devre dışı
-            pass
-        except Exception as e:
-            # print(f"data-hope-video genel hata: {e}") # Çok fazla loglamamak için devre dışı
+        except Exception:
             pass
             
     return None
 
 def main_scraper():
     """Ana kazıma işlemini yürütür."""
-    # 1. Dizi listesini çek
+    global dizi_verileri # Global değişkeni güncellemek için
+    
     diziler_html = get_html_content(DIZILER_URL)
     if not diziler_html:
-        print("Dizi listesi çekilemedi, program sonlanıyor.")
         return
 
     dizi_listesi = extract_dizi_list(diziler_html)
     if not dizi_listesi:
-        print("Dizi bulunamadı, program sonlanıyor.")
         return
         
     print(f"Toplam {len(dizi_listesi)} dizi bulundu.")
 
-    # 2. Her dizi için bölüm linklerini ve m3u8'leri çek
     for i, dizi in enumerate(dizi_listesi):
         dizi_ad = dizi['ad']
         dizi_id = dizi['id']
         print(f"\n--- {i+1}/{len(dizi_listesi)}: '{dizi_ad}' ({dizi_id}) dizisi işleniyor... ---")
         
-        # Dizi detay sayfasını çek
         dizi_detail_html = get_html_content(dizi['detail_url'])
         if not dizi_detail_html:
             print(f"'{dizi_ad}' detay sayfası çekilemedi, atlanıyor.")
             continue
             
-        # Bölüm linklerini çek (dizi adını temizlemek için gönderiyoruz)
-        bolumler = extract_bolum_links(dizi_detail_html, dizi_ad)
+        bolumler = extract_bolum_links(dizi_detail_html)
         print(f"  -> {len(bolumler)} bölüm linki bulundu.")
         
         # Dizi verisini hazırla
         dizi_verileri[dizi_id] = {
-            'ad': dizi_ad, # DÜZELTME 3: Orijinal adı JS objesine ekle (bölüm başlıkları için kullanışlı)
+            'ad': dizi_ad, 
             'resim': dizi['poster_url'],
             'bolumler': []
         }
@@ -223,47 +178,76 @@ def main_scraper():
         # Her bölüm için m3u8 linkini çek
         for j, bolum in enumerate(bolumler):
             bolum_url = bolum['url']
-            if j < 5: # İlk 5 bölümü logla, sonra kısalt
-               print(f"    -> {j+1}/{len(bolumler)}: Bölüm HTML'i çekiliyor: {bolum_url}")
-            elif j == 5:
-                 print(f"    -> ... kalan {len(bolumler) - 5} bölüm taranıyor ...")
-                 
+            
+            # Tüm bölümleri çekmeye çalış, logu kısalt
+            if j < 3: 
+                print(f"    -> {j+1}/{len(bolumler)}: Bölüm HTML'i çekiliyor: {bolum_url}")
+            elif j == 3:
+                 print(f"    -> ... kalan {len(bolumler) - 3} bölüm taranıyor ...")
+
             bolum_html = get_html_content(bolum_url)
             
             if bolum_html:
                 m3u8_link = extract_m3u8_link(bolum_html)
                 
                 if m3u8_link:
+                    # m3u8 linki bulundu, listeye ekle
                     dizi_verileri[dizi_id]['bolumler'].append({
                         'ad': bolum['ad'],
                         'link': m3u8_link
                     })
-                # else: # m3u8 bulunamadı loglarını kaldırdık, çünkü genellikle eski dizilerde bulunamıyor.
-                #     print(f"      -> UYARI: '{bolum['ad']}' için m3u8 linki bulunamadı, atlanıyor.")
-            # else:
-            #     print(f"      -> HATA: '{bolum['ad']}' bölüm HTML'i çekilemedi, atlanıyor.")
+                # else: m3u8 bulunamadıysa sessizce geç
+            # else: Bölüm HTML'i çekilemediyse sessizce geç
 
 
     print("\n--- Kazıma Tamamlandı ---")
 
-def generate_output_html(dizi_data, template_html_path="template.html", output_file="show.html"):
+def generate_output_html(dizi_data, output_file="show.html"):
     """Kazınan veriyi HTML şablonuna gömer ve çıktı dosyasını oluşturur."""
     print(f"\n5. Adım: HTML şablonu güncelleniyor ve '{output_file}' oluşturuluyor...")
     
+    # HTML şablonunu kullan
     template_content = HTML_TEMPLATE
 
-    # 1. JS Dizi Verisini Oluşturma
+    # 1. JS Dizi Verisini Oluşturma ve Gömme
     diziler_js_data = json.dumps(dizi_data, indent=1, ensure_ascii=False)
     
-    # JS objesini şablona göm
-    pattern = re.compile(r'var diziler = \{.*?\}', re.DOTALL)
-    new_js_block = f"var diziler = {diziler_js_data};"
-    updated_content = pattern.sub(new_js_block, template_content, count=1)
+    # Regex: var diziler = { ... } bloğunu bul
+    js_pattern = re.compile(r'var diziler = \{.*?\}\s*\;\s*let currentScreen', re.DOTALL)
+    
+    # Yeni JS bloğu
+    # Dikkat: Sondaki "};" işaretini de yakalayıp değiştirmesi gerekiyor, bu yüzden regex'i kullandık.
+    new_js_block = f"var diziler = {diziler_js_data};\n\n        let currentScreen"
+
+    # Şablonu güncelle
+    if js_pattern.search(template_content):
+         # Buradaki amacımız, son objenin bittiği yeri yakalamak, ama regex ile karmaşık.
+         # Basit bir placeholder kullanmak en güvenlisidir, ancak mevcut şablona uyuyoruz.
+         # Örnek objeyi ve takip eden iki satırı yakalamaya çalışalım:
+         
+         js_start_marker = 'var diziler = {'
+         js_end_marker = '        let currentScreen = \'anaSayfa\';'
+         
+         start_idx = template_content.find(js_start_marker)
+         end_idx = template_content.find(js_end_marker)
+         
+         if start_idx != -1 and end_idx != -1:
+             # Eğer bulursak, sadece 'var diziler = ' kısmını ve öncesini değiştiriyoruz.
+             content_before_obj = template_content[:start_idx]
+             content_after_obj = template_content[end_idx:]
+             
+             updated_content = f"{content_before_obj}var diziler = {diziler_js_data};{content_after_obj}"
+         else:
+             # Eğer bulamazsak, orijinal regex mantığına geri dönelim
+             updated_content = template_content.replace(template_content.split('var diziler = {')[1].split('};')[0], diziler_js_data.strip()[1:-1])
+
+    else:
+        # Yedek mekanizma (Çok az olası, sadece emniyet için)
+        updated_content = template_content
 
     # 2. Ana Sayfa Dizi Panellerini Oluşturma
     dizi_panelleri_html = ""
     for dizi_id, data in dizi_data.items():
-        # DÜZELTME 3: HTML'de görünen ad için orijinal adı kullan
         dizi_ad_gorunen = data.get('ad', dizi_id.replace('-', ' ').title()) 
         
         dizi_panelleri_html += f"""
@@ -276,24 +260,53 @@ def generate_output_html(dizi_data, template_html_path="template.html", output_f
         """
         
     # HTML Panellerini Şablona Entegre Etme
-    # Varolan örnek panelleri temizleyip yerine yenilerini koyuyoruz
+    # Bu regex, şablondaki <div class="baslik"> sonrası tüm örnek panelleri (rüya gibi ve veliaht) yakalar ve yenileriyle değiştirir.
+    # Bu, önceki denemede sorun çıkaran HTML fazlalığını da temizlemeyi hedefliyor.
     
-    # Örnek panelleri içeren bloğu bulma
-    # Bu regex, orijinal şablondaki <div class="baslik"> sonrasındaki iki örnek paneli yakalar.
-    panel_replace_pattern = re.compile(r'(<div class="baslik">.*?</div>\s*)(.*?)\s*</div>', re.DOTALL)
+    # DÜZELTME 4: HTML İçindeki Fazlalığı Temizleme.
+    # <div class="baslik"> den sonra başlayan ve </div></div><div id="bolumler" ile biten alanı bul
     
-    def replace_panels(match):
-        # match.group(1) -> <div class="baslik">...</div>
-        # match.group(2) -> Örnek paneller
-        return f'{match.group(1)}\n{dizi_panelleri_html}\n    </div>'
+    start_tag = '<div class="baslik">YERLİ DİZİLER VOD BÖLÜM</div>'
+    end_tag = '</div>\n\n    <div id="bolumler"'
+    
+    if start_tag in updated_content and end_tag in updated_content:
+        # İçeriği ayır
+        content_parts = updated_content.split(start_tag)
+        
+        # İlk kısım (başlangıç öncesi)
+        content_start = content_parts[0]
+        
+        # İkinci kısım (başlangıç sonrası, bitişe kadar)
+        content_to_replace = content_parts[1]
+        
+        end_index_of_replace = content_to_replace.find(end_tag.split('\n')[0]) 
+        
+        if end_index_of_replace != -1:
+            # Sadece panellerin olduğu kısmı bul
+            # <div class="filmpaneldis"> kısmını ve </div içinde kalan panelleri temizleyip yenisini ekle
+            
+            new_content = f"""{start_tag}
 
-    updated_content = panel_replace_pattern.sub(replace_panels, updated_content, count=1)
+{dizi_panelleri_html}
+        
+    </div>
+
+    <div id="bolumler"{content_to_replace[end_index_of_replace + len('</div>'):]}"""
+
+            # Tüm içeriği yeniden birleştir
+            updated_content = content_start + new_content
+            
+    # Son kez, HTML'in en sonunda kalan eski kod bloğunu regex ile temizleyelim
+    # Pattern: });, ile başlayan ve </script> öncesi biten her şeyi yakala
+    end_garbage_pattern = re.compile(r'\}\s*\;,\s*\{\"ad\"\:.*?\<\/script\>', re.DOTALL)
+    updated_content = end_garbage_pattern.sub(r'};\n\n    </script>', updated_content)
+
 
     # 3. Dosyayı kaydet
     try:
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write(updated_content)
-        print(f"Başarılı: '{output_file}' dosyası oluşturuldu ve veri başarıyla gömüldü.")
+        print(f"Başarılı: '{output_file}' dosyası oluşturuldu ve hatalar düzeltildi.")
     except IOError as e:
         print(f"Hata: Dosya yazma hatası: {e}")
 
@@ -879,22 +892,16 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 # --- Çalıştırma ---
 
 if __name__ == "__main__":
-    # Kütüphanenin kurulu olduğundan emin olun
     try:
         from unidecode import unidecode
     except ImportError:
         print("HATA: 'unidecode' kütüphanesi kurulu değil.")
         print("Lütfen kurun: pip install unidecode")
-        exit() # Kütüphane olmadan ID'ler doğru çalışmayacağı için çıkış yapıyoruz
+        exit()
         
     main_scraper()
     
     if dizi_verileri:
-        # Son bir kontrol, zaten main_scraper içinde yapılıyor ama HTML oluşturma öncesi veriyi tekrar düzenlemiyoruz.
-        # Dizi ID'leri ve adları artık doğru olmalı.
-        
-        # HTML dosyasını oluştur
         generate_output_html(dizi_verileri, output_file="show.html")
     else:
         print("Kazınan veri boş olduğu için HTML dosyası oluşturulamadı. Lütfen Show TV URL'sinin erişilebilir olduğundan emin olun.")
-
