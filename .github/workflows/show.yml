@@ -23,11 +23,11 @@ jobs:
 
       - name: Gerekli Python Kütüphanelerini Kur
         run: |
-          pip install requests beautifulsoup4 lxml
+          pip install requests beautifulsoup4 lxml unidecode tqdm urllib3
 
       - name: Scraper'ı Çalıştır
         run: |
-          python show.py   # Senin ana scraper dosyan (isim farklıysa değiştir)
+          python show.py   # Ana scraper dosyan
 
       - name: HTML Çıktısını Commit Et
         run: |
