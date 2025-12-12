@@ -2,6 +2,7 @@ import requests
 import re
 import urllib3
 import warnings
+from urllib.parse import urljoin
 
 # --- AYARLAR ---
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -10,7 +11,7 @@ warnings.filterwarnings('ignore')
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
 }
-TIMEOUT_VAL = 15 
+TIMEOUT_VAL = 15
 PROXY_URL = "https://seep.eu.org/"
 
 # --- LOGO HARİTASI ---
@@ -99,6 +100,16 @@ def get_html_proxy(url, use_proxy=True):
         print(f"Hata ({url}): {e}")
         return None
 
+# --- DOĞRUDAN İSTEK (Proxy olmadan) ---
+def get_html_direct(url):
+    try:
+        r = requests.get(url, headers=HEADERS, timeout=TIMEOUT_VAL, verify=False)
+        r.raise_for_status()
+        return r.text
+    except Exception as e:
+        print(f"Hata (direkt - {url}): {e}")
+        return None
+
 # --- SELÇUK TARAMA ---
 def fetch_selcuk():
     print("--- Selçuk Taranıyor ---")
@@ -126,14 +137,19 @@ def fetch_selcuk():
     
     print(f"✅ Aktif Domain: {active_domain}")
 
-    # 3. Domain sayfasına git
-    domain_html = get_html_proxy(active_domain, use_proxy=True)
+    # 3. Domain sayfasına git (PROXY OLMADAN)
+    domain_html = get_html_direct(active_domain)
     if not domain_html:
         print("❌ Domain sayfasına girilemedi.")
         return []
 
-    # 4. Player linklerini bul
-    player_links = re.findall(r'data-url=["\'](https?://[^"\']+id=[^"\']+)["\']', domain_html)
+    # 4. Player linklerini bul - Regex patternini düzelttim
+    # data-url patternini daha geniş tuttum
+    player_links = re.findall(r'data-url=["\'](https?://[^"\']+?id=[^"\']+?)["\']', domain_html)
+    if not player_links:
+        # Alternatif pattern: href içinde player linki
+        player_links = re.findall(r'href=["\'](https?://[^"\']+?index\.php\?id=[^"\']+?)["\']', domain_html)
+    
     if not player_links:
         print("❌ Player linkleri bulunamadı.")
         return []
@@ -141,31 +157,91 @@ def fetch_selcuk():
     results = []
     base_stream_url = ""
 
-    # 5. Base URL'i çek
+    # 5. Base URL'i çek (İLK GEÇERLİ PLAYER İÇİN)
     for player_url in player_links:
-        html_player = get_html_proxy(player_url, use_proxy=True)
+        print(f"🔍 Player deneniyor: {player_url}")
+        
+        # Proxy kullanmadan direk istek yap
+        html_player = get_html_direct(player_url)
         if html_player:
+            # this.baseStreamUrl pattern'ini ara
             stream_match = re.search(r'this\.baseStreamUrl\s*=\s*[\'"](https://[^\'"]+)[\'"]', html_player)
             if stream_match:
                 base_stream_url = stream_match.group(1)
                 print(f"🎯 Yayın URL Tabanı: {base_stream_url}")
                 break
+            else:
+                # Alternatif pattern: const baseStreamUrl
+                stream_match = re.search(r'const baseStreamUrl\s*=\s*[\'"](https://[^\'"]+)[\'"]', html_player)
+                if stream_match:
+                    base_stream_url = stream_match.group(1)
+                    print(f"🎯 Yayın URL Tabanı (alternatif): {base_stream_url}")
+                    break
+                
+                # Diğer alternatif: baseStreamUrl: '...'
+                stream_match = re.search(r'baseStreamUrl\s*:\s*[\'"](https://[^\'"]+)[\'"]', html_player)
+                if stream_match:
+                    base_stream_url = stream_match.group(1)
+                    print(f"🎯 Yayın URL Tabanı (alternatif 2): {base_stream_url}")
+                    break
+    
+    if not base_stream_url:
+        print("❌ Yayın taban URL'si bulunamadı. Son çare: Tüm player sayfalarını tarıyor...")
+        # Tüm player sayfalarını kontrol et
+        for player_url in player_links:
+            html_player = get_html_direct(player_url)
+            if html_player:
+                # Tüm olası stream URL patternlerini ara
+                patterns = [
+                    r'this\.baseStreamUrl\s*=\s*[\'"](https://[^\'"]+)[\'"]',
+                    r'const baseStreamUrl\s*=\s*[\'"](https://[^\'"]+)[\'"]',
+                    r'baseStreamUrl\s*:\s*[\'"](https://[^\'"]+)[\'"]',
+                    r'streamUrl\s*=\s*[\'"](https://[^\'"]+)[\'"]',
+                    r'streamUrl\s*:\s*[\'"](https://[^\'"]+)[\'"]',
+                    r'src\s*=\s*[\'"](https://[^\'"]+/live/[^\'"]+)[\'"]'
+                ]
+                for pattern in patterns:
+                    stream_match = re.search(pattern, html_player)
+                    if stream_match:
+                        base_stream_url = stream_match.group(1)
+                        if 'live/' in base_stream_url:
+                            base_stream_url = base_stream_url.split('live/')[0] + 'live/'
+                        print(f"🎯 Yayın URL Tabanı (pattern: {pattern}): {base_stream_url}")
+                        break
+                if base_stream_url:
+                    break
     
     if not base_stream_url:
         print("❌ Yayın taban URL'si bulunamadı.")
         return []
 
-    # 6. Listeyi oluştur (İsim eşleştirme düzeltildi)
+    # Base URL'in /live/ ile bitmesini sağla
+    if not base_stream_url.endswith('/'):
+        base_stream_url += '/'
+    
+    # Eğer 'live/' içermiyorsa ekle
+    if 'live/' not in base_stream_url:
+        base_stream_url = base_stream_url.rstrip('/') + '/live/'
+
+    print(f"✅ Final Base URL: {base_stream_url}")
+
+    # 6. Listeyi oluştur
     for cid, proper_name in SELCUK_NAMES.items():
-        stream_url = base_stream_url + cid + "/playlist.m3u8"
+        # Eğer cid URL içinde değilse, base URL'ye ekle
+        if cid in base_stream_url:
+            stream_url = base_stream_url + "playlist.m3u8"
+        else:
+            stream_url = base_stream_url + cid + "/playlist.m3u8"
         
-        # Artık düzgün ismi kullanıyoruz
+        # Bazı kanallar için farklı URL yapısı olabilir
+        if "sssplus" in cid:
+            stream_url = base_stream_url + "sssplus1/playlist.m3u8" if "1" in cid else base_stream_url + "sssplus2/playlist.m3u8"
+        
         channel_name = "TR: " + proper_name
-        
-        # Logo fonksiyonuna düzgün ismi gönderiyoruz
         logo = get_logo(proper_name)
         
         results.append(f'#EXTINF:-1 tvg-logo="{logo}" group-title="TURKIYE DEATHLESS", {channel_name}\n{stream_url}')
+        print(f"✅ {proper_name} eklendi: {stream_url}")
 
     print(f"Selçuk'tan {len(results)} kanal eklendi.")
     return results
@@ -204,7 +280,7 @@ https://z3mmimwz148csv0vaxtphqspf.medya.trt.com.tr/master_1080p.m3u8
 https://vbtob9hyq58eiophct5qctxr2.medya.trt.com.tr/master_1080p.m3u8
 """
 
-# --- HTML ŞABLONU ---
+# --- HTML ŞABLONU (Aynı kalıyor) ---
 HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="tr">
 <head>
