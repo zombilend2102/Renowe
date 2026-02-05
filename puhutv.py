@@ -5,6 +5,7 @@ from urllib.parse import urljoin
 import json
 import os
 
+# --- AYARLAR ---
 main_url = "https://puhutv.com/"
 diziler_url = "https://puhutv.com/dizi"
 
@@ -83,7 +84,8 @@ def get_all_content():
                     series_list.append(content)
 
         all_series = []
-        for series in tqdm(series_list, desc="Processing Series"):
+        # Tqdm barı ile işlem durumunu göster
+        for series in tqdm(series_list, desc="Diziler İşleniyor"):
             series_id = series["id"]
             series_name = series["name"]
             series_slug = series["meta"]["slug"]
@@ -101,14 +103,14 @@ def get_all_content():
                 "episodes": []
             }
 
+            # Sezonları tersten değil düzden eklemek genelde mantıklıdır, 
+            # ancak puhu bazen son sezonu ilk verebilir. 
+            # Burada gelen sırayı koruyoruz.
             for season in series_details["seasons"]:
                 season_slug = season["slug"]
-                season_name = season["name"]
                 episodes = get_stream_urls(season_slug)
+                # Bölümleri listeye ekle (isim düzenlemesi create_json_data'da yapılacak)
                 for ep in episodes:
-                    temp_name = f"{season_name} - {ep['name']}"
-                    temp_name = temp_name.replace(". ", ".").replace(" - ", " ")
-                    ep["full_name"] = f"{series_name} {temp_name}"
                     temp_series["episodes"].append(ep)
 
             if temp_series["episodes"]:
@@ -123,12 +125,20 @@ def get_all_content():
 def create_json_data(data):
     json_data = {}
     for idx, series in enumerate(data, 1):
+        # Burada bölümleri numaralandırarak yeniden isimlendiriyoruz
+        # ep['full_name'] yerine sadece sayaç kullanıyoruz
+        processed_episodes = []
+        
+        # Enumerate ile 1'den başlayarak saydırıyoruz
+        for ep_num, ep in enumerate(series["episodes"], 1):
+            processed_episodes.append({
+                "ad": f"{ep_num}. Bölüm",  # İSTEĞİNİZ BURADA YAPILDI: Sadece numara ve Bölüm
+                "link": ep["stream_url"]
+            })
+            
         json_data[str(idx)] = {
             "resim": series["img"],
-            "bolumler": [
-                {"ad": ep["full_name"], "link": ep["stream_url"]}
-                for ep in series["episodes"]
-            ]
+            "bolumler": processed_episodes
         }
     return json_data
 
@@ -160,61 +170,27 @@ def save_html_file(data):
             -webkit-text-decoration: none;
             overflow-x: hidden;
         }
-        .slider-slide { background: #15161a; box-sizing: border-box; }
-        .slidefilmpanel { transition: .35s; box-sizing: border-box; background: #15161a; overflow: hidden; }
-        .slidefilmpanel:hover { background-color: #572aa7; }
-        .slidefilmpanel:hover .filmresim img { transform: scale(1.2); }
-        .slider { position: relative; padding-bottom: 0px; width: 100%; overflow: hidden; --tw-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25); --tw-shadow-colored: 0 25px 50px -12px var(--tw-shadow-color); box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow); }
-        .slider-container { display: flex; width: 100%; scroll-snap-type: x var(--tw-scroll-snap-strictness); --tw-scroll-snap-strictness: mandatory; align-items: center; overflow: auto; scroll-behavior: smooth; }
-        .slider-container .slider-slide { aspect-ratio: 9/13.5; display: flex; flex-shrink: 0; flex-basis: 14.14%; scroll-snap-align: start; flex-wrap: nowrap; align-items: center; justify-content: center; }
-        .slider-container::-webkit-scrollbar { width: 0px; }
-        .clear { clear: both; }
-        .hataekran i { color: #572aa7; font-size: 80px; text-align: center; width: 100%; }
-        .hataekran { width: 80%; margin: 20px auto; color: #fff; background: #15161a; border: 1px solid #323442; padding: 10px; box-sizing: border-box; border-radius: 10px; }
-        .hatayazi { color: #fff; font-size: 15px; text-align: center; width: 100%; margin: 20px 0px; }
         .filmpaneldis { background: #15161a; width: 100%; margin: 20px auto; overflow: hidden; padding: 10px 5px; box-sizing: border-box; }
-        .aramafilmpaneldis { background: #15161a; width: 100%; margin: 20px auto; overflow: hidden; padding: 10px 5px; box-sizing: border-box; }
-        .bos { width: 100%; height: 60px; background: #572aa7; }
-        .baslik { width: 96%; color: #fff; padding: 15px 10px; box-sizing: border-box; }
+        .baslik { width: 96%; color: #fff; padding: 15px 10px; box-sizing: border-box; font-size: 18px; font-weight: bold; }
         .filmpanel { width: 12%; height: 200px; background: #15161a; float: left; margin: 1.14%; color: #fff; border-radius: 15px; box-sizing: border-box; box-shadow: 1px 5px 10px rgba(0,0,0,0.1); border: 1px solid #323442; padding: 0px; overflow: hidden; transition: border 0.3s ease, box-shadow 0.3s ease; cursor: pointer; }
         .filmisimpanel { width: 100%; height: 200px; position: relative; margin-top: -200px; background: linear-gradient(to bottom, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 1) 100%); }
         .filmpanel:hover { color: #fff; border: 3px solid #572aa7; box-shadow: 0 0 10px rgba(87, 42, 167, 0.5); }
-        .filmpanel:focus { outline: none; border: 3px solid #572aa7; box-shadow: 0 0 10px rgba(87, 42, 167, 0.5); }
         .filmresim { width: 100%; height: 100%; margin-bottom: 0px; overflow: hidden; position: relative; }
-        .filmresim img { width: 100%; height: 100%; transition: transform 0.4s ease; }
+        .filmresim img { width: 100%; height: 100%; transition: transform 0.4s ease; object-fit: cover; }
         .filmpanel:hover .filmresim img { transform: scale(1.1); }
-        .filmpanel:focus .filmresim img { transform: none; }
-        .filmisim { width: 100%; font-size: 14px; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0px 5px; box-sizing: border-box; color: #fff; position: absolute; bottom: 25px; }
-        .resimust { height: 25px; width: 100%; position: absolute; bottom: 0px; overflow: hidden; box-sizing: border-box; padding: 0px 5px; }
+        .filmisim { width: 100%; font-size: 14px; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0px 5px; box-sizing: border-box; color: #fff; position: absolute; bottom: 25px; text-align: center; }
         .aramapanel { width: 100%; height: 60px; background: #15161a; border-bottom: 1px solid #323442; margin: 0px auto; padding: 10px; box-sizing: border-box; overflow: hidden; z-index: 11111; }
         .aramapanelsag { width: auto; height: 40px; box-sizing: border-box; overflow: hidden; float: right; }
         .aramapanelsol { width: 50%; height: 40px; box-sizing: border-box; overflow: hidden; float: left; }
         .aramapanelyazi { height: 40px; width: 120px; border: 1px solid #ccc; box-sizing: border-box; padding: 0px 10px; background: #fff; color: #000; margin: 0px 5px; }
-        .aramapanelbuton { height: 40px; width: 40px; text-align: center; background-color: #572aa7; border: none; color: #fff; box-sizing: border-box; overflow: hidden; float: right; transition: .35s; }
+        .aramapanelbuton { height: 40px; width: 40px; text-align: center; background-color: #572aa7; border: none; color: #fff; box-sizing: border-box; overflow: hidden; float: right; transition: .35s; cursor: pointer; }
         .aramapanelbuton:hover { background-color: #fff; color: #000; }
         .logo { width: 40px; height: 40px; float: left; }
         .logo img { width: 100%; }
-        .logoisim { font-size: 15px; width: 70%; height: 40px; line-height: 40px; font-weight: 500; color: #fff; }
-        #dahafazla { background: #572aa7; color: #fff; padding: 10px; margin: 20px auto; width: 200px; text-align: center; transition: .35s; }
-        #dahafazla:hover { background: #fff; color: #000; }
-        .dispanel { width: 100%; height: 100vh; display: table; margin: 0px auto; box-sizing: border-box; padding: 0px; overflow: hidden; position: absolute; top: 0; left: 0; background: #00040d; }
-        .icpanel { display: table-cell; vertical-align: middle; text-align: center; }
-        .filmsayfapanel { background: #15161a; color: #fff; width: 70%; margin: 20px auto; box-sizing: border-box; overflow: hidden; padding: 10px; box-shadow: 1px 5px 10px rgba(0,0,0,0.1); border: 1px solid #323442; border-radius: 15px; }
-        .filmbasliklarust { width: 100%; }
-        .filmsayfaresim { width: 20%; float: left; margin-right: 2%; height: 230px; }
-        .filmsayfaresim img { width: 100%; height: 100%; border-radius: 15px; }
-        .filmbasliklarsag { float: left; width: 32%; margin-left: 2%; }
-        .ozetpanel { float: left; width: 42%; margin-left: 2%; height: 230px; overflow-x: hidden; box-sizing: border-box; background: #15161a; border: 1px solid #323442; padding: 3px; border-radius: 15px; }
-        .ozetpanel::-webkit-scrollbar { width: 0px; background-color: #323442; }
-        .filmsayfabaslik { height: 40px; line-height: 40px; color: #fff; font-weight: 700; background: #15161a; border: 1px solid #323442; box-sizing: border-box; border-radius: 15px; }
-        .filsayfafilmisim { padding: 10px 0px; color: #ccc; font-weight: 500; }
-        .filsayfafilmisim2 { padding: 10px 0px; color: #ccc; }
-        a { text-decoration: none; }
-        a .buton { height: 40px; line-height: 40px; width: 200px; text-align: center; background: #572aa7; margin: 10px auto; transition: .35s; color: #fff; }
-        .buton:hover { background: #fff; color: #000; transform: scale(1.1); }
+        .logoisim { font-size: 15px; width: 70%; height: 40px; line-height: 40px; font-weight: 500; color: #fff; margin-left: 10px; }
         .hidden { display: none; }
         .bolum-container { background: #15161a; padding: 10px; margin-top: 10px; border-radius: 5px; }
-        .geri-btn { background: #572aa7; color: white; padding: 10px; text-align: center; border-radius: 5px; cursor: pointer; margin-top: 10px; margin-bottom: 10px; display: none; width: 100px; }
+        .geri-btn { background: #572aa7; color: white; padding: 10px; text-align: center; border-radius: 5px; cursor: pointer; margin-top: 10px; margin-bottom: 10px; display: none; width: 100px; font-weight: bold; }
         .geri-btn:hover { background: #6b3ec7; transition: background 0.3s; }
         .playerpanel {
             width: 100vw;
@@ -243,6 +219,7 @@ def save_html_file(data):
             position: absolute;
             top: 0;
             left: 0;
+            font-weight: bold;
         }
         .player-geri-btn:hover {
             background: #6b3ec7;
@@ -262,18 +239,12 @@ def save_html_file(data):
         }
         @media(max-width:900px) {
             .filmpanel { width: 17%; height: 220px; margin: 1.5%; }
-            .slider-container .slider-slide { flex-basis: 20%; }
             .playerpanel { width: 100vw; height: 100vh; }
             #main-player { width: 100%; height: 100%; }
         }
         @media(max-width:550px) {
             .filmisimpanel { height: 190px; margin-top: -190px; }
             .filmpanel { width: 31.33%; height: 190px; margin: 1%; }
-            .filmsayfaresim { width: 48%; float: left; }
-            .filmsayfapanel { background: #15161a; color: #fff; width: 90%; height: auto; }
-            .filmbasliklarsag { float: left; width: 100%; margin-top: 20px; margin-left: 0px; }
-            .ozetpanel { float: left; width: 48%; height: 230px; }
-            .slider-container .slider-slide { flex-basis: 33.33%; }
             .playerpanel { width: 100vw; height: 100vh; }
             #main-player { width: 100%; height: 100%; }
             .player-geri-btn { width: 80px; padding: 8px; font-size: 14px; }
@@ -306,9 +277,12 @@ def save_html_file(data):
             listContainer.innerHTML = "";
             
             if (diziler[diziID]) {{
+                // Bölümler listelenirken dizi resmi arka plan olarak kullanılabilir 
+                // ya da her bölüm kutusunda aynı resim gösterilir.
                 diziler[diziID].bolumler.forEach(function(bolum) {{
                     var item = document.createElement("div");
                     item.className = "filmpanel";
+                    // Bölüm isimleri create_json_data'da zaten 1. Bölüm, 2. Bölüm yapıldı.
                     item.innerHTML = `
                         <div class="filmresim"><img src="${{diziler[diziID].resim}}"></div>
                         <div class="filmisimpanel">
@@ -321,12 +295,15 @@ def save_html_file(data):
                     listContainer.appendChild(item);
                 }});
             }} else {{
-                listContainer.innerHTML = "<p>Bu dizi için bölüm bulunamadı.</p>";
+                listContainer.innerHTML = "<p style='color:white; padding:10px;'>Bu dizi için bölüm bulunamadı.</p>";
             }}
             
             document.querySelector(".filmpaneldis").classList.add("hidden");
             document.getElementById("bolumler").classList.remove("hidden");
             document.getElementById("geriBtn").style.display = "block";
+            // Sayfa başına kaydır
+            window.scrollTo(0,0);
+            
             currentScreen = 'bolumler';
             history.replaceState({{ page: 'bolumler', diziID: diziID }}, '', `#bolumler-${{diziID}}`);
         }}
@@ -342,9 +319,12 @@ def save_html_file(data):
             }}
             document.getElementById("main-player").innerHTML = "";
             document.getElementById("main-player").innerHTML = '<div id="jw-player"></div>';
+            
+            var bolumAdi = diziler[diziID].bolumler.find(b => b.link === streamUrl).ad;
+            
             jwPlayerInstance = jwplayer("jw-player").setup({{
                 file: streamUrl,
-                title: diziler[diziID].bolumler.find(b => b.link === streamUrl).ad,
+                title: bolumAdi, // Player başlığında da sadece '1. Bölüm' yazar
                 image: diziler[diziID].resim,
                 width: "100%",
                 height: "100%",
@@ -356,7 +336,7 @@ def save_html_file(data):
                 controls: true,
                 stretching: "uniform"
             }});
-            // Tam ekran butonunu aktif et
+            
             jwPlayerInstance.on('ready', function() {{
                 const playerContainer = document.getElementById("jw-player");
                 playerContainer.style.width = "100vw";
@@ -383,6 +363,7 @@ def save_html_file(data):
             document.getElementById("geriBtn").style.display = "none";
             currentScreen = 'anaSayfa';
             history.replaceState({{ page: 'anaSayfa' }}, '', '#anaSayfa');
+            window.scrollTo(0,0);
         }}
 
         window.addEventListener('popstate', function(event) {{
@@ -425,7 +406,8 @@ def save_html_file(data):
 
         function searchSeries() {{
             var query = document.getElementById('seriesSearch').value.toLowerCase();
-            var series = document.querySelectorAll('.filmpanel');
+            var series = document.querySelectorAll('.filmpaneldis .filmpanel'); 
+            // Sadece ana sayfadaki dizilerde arama yapar, bölüm içinde aramaz
             series.forEach(function(serie) {{
                 var title = serie.querySelector('.filmisim').textContent.toLowerCase();
                 if (title.includes(query)) {{
@@ -440,7 +422,7 @@ def save_html_file(data):
         function resetSeriesSearch() {{
             var query = document.getElementById('seriesSearch').value.toLowerCase();
             if (query === "") {{
-                var series = document.querySelectorAll('.filmpanel');
+                var series = document.querySelectorAll('.filmpaneldis .filmpanel');
                 series.forEach(function(serie) {{
                     serie.style.display = "block";
                 }});
@@ -504,10 +486,6 @@ def save_html_file(data):
         print("puhutv.html dosyası başarıyla oluşturuldu!")
     except Exception as e:
         print(f"Dosya yazma hatası: {str(e)}")
-        print("=== PUHUTV.HTML DOSYASI BAŞLANGICI ===")
-        print(html_template)
-        print("=== PUHUTV.HTML DOSYASI SONU ===")
-        print("Dosya oluşturulamadı, yukarıdaki HTML kodunu kopyala ve 'puhutv.html' olarak kaydet!")
 
 def main():
     print("PuhuTV verileri çekiliyor...")
