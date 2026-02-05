@@ -2,19 +2,23 @@ name: PuhuTV Güncelleme Botu
 
 on:
   schedule:
-    # Her gün UTC saatiyle 00:00'da çalışır (Türkiye saatiyle 03:00)
+    # Her gün Türkiye saatiyle gece 03:00 (UTC 00:00)
     - cron: '0 0 * * *'
-  workflow_dispatch: # Elle tetiklemek için buton ekler
+  workflow_dispatch: # Manuel tetikleme butonu
+
+# Botun repoya yazabilmesi için gerekli izinler
+permissions:
+  contents: write
 
 jobs:
-  build:
+  update-list:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write # Repoya dosya yazma izni verir
-
+    
     steps:
       - name: Repoyu Çek (Checkout)
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Tüm geçmişi çek ki pushlarken hata vermesin
 
       - name: Python Kurulumu (3.9)
         uses: actions/setup-python@v5
@@ -29,14 +33,17 @@ jobs:
       - name: Python Scriptini Çalıştır
         run: python puhutv.py
 
-      - name: Değişiklikleri Kontrol Et ve Commit At
+      - name: Değişiklikleri İşle ve Gönder
         run: |
-          git config --global user.name "GitHub Actions Bot"
-          git config --global user.email "actions@github.com"
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action Bot"
           
-          # HTML dosyasını git'e ekle
+          # Oluşan html dosyasını ekle
           git add puhutv.html
           
-          # Eğer değişiklik varsa commit at ve pushla, yoksa hata verme
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Otomatik Güncelleme: puhutv.html [$(date)]" && git push)
+          # Eğer değişiklik varsa commit at, yoksa "Değişiklik yok" yazıp çık (Hata vermez)
+          git commit -m "Otomatik Güncelleme: $(date +'%Y-%m-%d %H:%M')" || echo "Değişiklik olmadığı için commit atılmadı."
+          
+          # Değişiklik varsa main branch'e pushla
+          git push origin HEAD:main
           
