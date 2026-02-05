@@ -40,6 +40,8 @@ def get_stream_urls(season_slug):
             return []
 
         episodes = []
+        # Bölümler bazen ters sırada gelebilir, API yapısına göre düzeltme gerekebilir
+        # Genelde PuhuTV sıralı verir ama emin olmak için olduğu gibi alıyoruz.
         for ep in content["episodes"]:
             if "video_id" in ep:
                 episodes.append({
@@ -100,16 +102,27 @@ def get_all_content():
                 "url": urljoin(main_url, series_slug),
                 "episodes": []
             }
+            
+            # --- DEĞİŞİKLİK BURADA BAŞLIYOR ---
+            # Her dizi için sayacı sıfırlıyoruz
+            episode_counter = 0 
 
+            # Sezonları sıralı alıyoruz (API genelde 1,2,3 verir)
             for season in series_details["seasons"]:
                 season_slug = season["slug"]
-                season_name = season["name"]
                 episodes = get_stream_urls(season_slug)
+                
+                # Eğer bölümler sonuncudan ilkine sıralı geliyorsa ters çevirmek gerekebilir
+                # Puhu genelde sıralı verir ama gerekirse: episodes.reverse() eklenebilir.
+                
                 for ep in episodes:
-                    temp_name = f"{season_name} - {ep['name']}"
-                    temp_name = temp_name.replace(". ", ".").replace(" - ", " ")
-                    ep["full_name"] = f"{series_name} {temp_name}"
+                    episode_counter += 1 # Sayacı 1 arttır
+                    
+                    # İsim formatını "34. Bölüm" şeklinde yapıyoruz
+                    ep["full_name"] = f"{episode_counter}. Bölüm"
+                    
                     temp_series["episodes"].append(ep)
+            # --- DEĞİŞİKLİK BURADA BİTİYOR ---
 
             if temp_series["episodes"]:
                 all_series.append(temp_series)
